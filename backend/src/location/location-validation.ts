@@ -77,7 +77,7 @@ export function validateSample(s: LocationSampleInput, prev: PreviousSample | nu
     trusted = false;
   }
   if (s.accuracyM > VALIDATION_LIMITS.rewardAccuracyM) {
-    // Not cheating — just not precise enough to reward.
+    // Not cheating, just not precise enough to reward.
     trusted = false;
   }
 

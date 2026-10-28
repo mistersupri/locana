@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
 import { APP_ENV, AppEnv } from '../config/env';
@@ -108,6 +109,16 @@ export class TokenService {
     const sessions = await this.prisma.userSession.findMany({ where: { familyId: s.familyId }, select: { id: true } });
     await this.prisma.userSession.updateMany({ where: { familyId: s.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
     this.forget(sessions.map((x) => x.id));
+  }
+
+  /** Expired or revoked sessions and used reset codes have no purpose after a short grace period. */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async purgeExpired(now = new Date()) {
+    const cutoff = new Date(now.getTime() - 7 * 86_400_000);
+    const sessions = await this.prisma.userSession.deleteMany({ where: { OR: [{ expiresAt: { lt: cutoff } }, { revokedAt: { lt: cutoff } }] } });
+    const resets = await this.prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: cutoff } } });
+    if (sessions.count || resets.count) new Logger('Tokens').log(`purged ${sessions.count} session(s), ${resets.count} reset code(s)`);
+    return { sessions: sessions.count, resets: resets.count };
   }
 
   async revokeAll(userId: string, exceptFamilyOf?: string) {

@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { AddressInfo } from 'net';
 import request from 'supertest';
 import WebSocket from 'ws';
 import { createApp } from '../src/main';
@@ -16,7 +17,7 @@ export interface TestUser {
 export async function startApp(): Promise<{ app: INestApplication; port: number }> {
   const app = await createApp();
   await app.listen(0, '127.0.0.1');
-  const addr = app.getHttpServer().address();
+  const addr = app.getHttpServer().address() as AddressInfo;
   return { app, port: addr.port };
 }
 

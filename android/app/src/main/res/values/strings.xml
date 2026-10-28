@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Locana</string>
+    <string name="channel_sharing">Location sharing</string>
+    <string name="channel_sharing_desc">Shown while Locana is sharing your location or tracking exploration.</string>
+    <string name="channel_circle">Circle updates</string>
+    <string name="channel_circle_desc">Arrivals, departures and circle activity.</string>
+    <string name="channel_game">Game progress</string>
+    <string name="channel_game_desc">Quests, levels and achievements.</string>
+    <string name="channel_security">Account security</string>
+    <string name="channel_security_desc">Sign-ins and password changes.</string>
+</resources>

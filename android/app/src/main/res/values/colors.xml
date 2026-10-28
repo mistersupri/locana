@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="navy_900">#0D1522</color>
+    <color name="paper">#F5F7F6</color>
+    <color name="teal_500">#3CC6B4</color>
+    <color name="splash_background">@color/paper</color>
+</resources>
