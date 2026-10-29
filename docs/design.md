@@ -39,4 +39,4 @@ Measured ratios for the main pairs: body text on navy 15.7:1, secondary text on 
 ## Open items
 
 - Real logo and launcher icon (currently the word "Locana" and a plain letter L, marked as placeholders in the resources).
-- Visual review on devices: nothing has been rendered yet (see the Android build status).
+- Visual review on real devices. Every main screen has been rendered and reviewed in light and dark through the Robolectric click-through (see `docs/android.md`), which led to a visible selection ring on the avatar picker and hidden distances when no location fix exists. The Google Map layer itself has not been rendered (no Maps key in that run).

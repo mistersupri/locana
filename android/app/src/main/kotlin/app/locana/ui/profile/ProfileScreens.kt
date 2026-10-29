@@ -210,7 +210,7 @@ fun SharingScreen(nav: NavController, vm: SharingViewModel = hiltViewModel()) {
                         Text(
                             when {
                                 st.globallyPaused -> "Sharing is paused everywhere"
-                                st.sessions.any { it.status == "ACTIVE" } -> "Sharing with ${st.sessions.count { it.status == "ACTIVE" }} circle(s)"
+                                st.sessions.any { it.status == "ACTIVE" } -> st.sessions.count { it.status == "ACTIVE" }.let { n -> if (n == 1) "Sharing with 1 circle" else "Sharing with $n circles" }
                                 else -> "You're not sharing with anyone"
                             },
                             style = MaterialTheme.typography.titleMedium,

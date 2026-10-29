@@ -161,6 +161,9 @@ class LandmarksViewModel @Inject constructor(
     val query = MutableStateFlow("")
     private var job: Job? = null
     private var origin: Pair<Double, Double>? = null
+    private val _located = MutableStateFlow(true)
+    /** False when no recent fix exists: the list is then shown without distances. */
+    val located: StateFlow<Boolean> = _located.asStateFlow()
 
     init { search() }
 
@@ -170,11 +173,11 @@ class LandmarksViewModel @Inject constructor(
         val loc = if (tracking.refreshPermissions().anyLocation) {
             runCatching { LocationServices.getFusedLocationProviderClient(context).lastLocation.await() }.getOrNull()
         } else null
-        // Without a location we can still search by name; distance is then measured from central Jakarta.
-        return (loc?.let { it.latitude to it.longitude } ?: (-6.1754 to 106.8272)).also { origin = it }
+        _located.value = loc != null
+        // Without a fix the server still needs a point to search around; the UI then hides distances,
+        // because they would be measured from this fallback (central Jakarta), not from the user.
+        return (loc?.let { it.latitude to it.longitude } ?: (-6.1754 to 106.8272)).also { if (loc != null) origin = it }
     }
-
-    val hasLocation: Boolean get() = tracking.permissions.value.anyLocation
 
     fun onQuery(q: String) {
         query.value = q

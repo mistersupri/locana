@@ -17,9 +17,11 @@
 
 All versions are pinned in `gradle/libs.versions.toml`.
 
-## Build status (read this first)
+## Build status
 
-The app module was written in an environment that could not reach Google Maven (`dl.google.com`), so it has **not been compiled yet**. The `domain` module compiles and its 18 tests pass. Expect to fix some compile errors on the first build, most likely around Maps Compose clustering signatures and Material 3 experimental APIs.
+Verified in this repository: `:app:assembleDebug` and `:app:assembleRelease` (R8 minified, unsigned) build, and 39 JVM tests pass, including a full-app click-through against a running backend (below).
+
+Not verified yet: running on a real device or emulator (no hardware acceleration where this was built), the Google Map itself (needs `MAPS_API_KEY`), the release build at runtime (R8 rules are in place for kotlinx.serialization and Retrofit, but a minified build has not been launched), background tracking and battery use.
 
 ## Setup
 
@@ -72,7 +74,24 @@ The app gets an ID token through Credential Manager and the server verifies it w
 ./gradlew :app:testDebugUnitTest
 ```
 
-App unit tests run on the JVM with Robolectric: offline upload queue (MockWebServer and in-memory Room), Room DAOs, WebSocket reconnect and re-subscribe, AuthViewModel validation and sign-in, Compose UI components and route builders. They were written alongside the code and have not run yet (see build status).
+App unit tests run on the JVM with Robolectric: offline upload queue (MockWebServer and in-memory Room), Room DAOs, WebSocket reconnect and re-subscribe, AuthViewModel validation and sign-in, Compose UI components and route builders.
+
+### Full-app click-through
+
+`app/src/test/kotlin/app/locana/e2e/AppFlowTest.kt` launches the real `MainActivity` with the real Hilt graph (only the API URL and token cipher are replaced) and drives it against a running backend: registration with validation errors, profile setup, permission education with everything declined, circle creation, invitation code, granting location and sharing for one hour, quests, quest detail, landmark search (no distances without a fix), Play, achievements, collection, leaderboard, circle feed and members, sharing controls, privacy, dark theme, sign out and sign in again. It saves a screenshot of each screen.
+
+It is skipped unless `LOCANA_E2E_API` is set. With the backend running locally (see `docs/backend.md`):
+
+```bash
+LOCANA_E2E_API=http://127.0.0.1:3000/ LOCANA_SHOTS_DIR=/tmp/locana-shots ./gradlew :app:testDebugUnitTest --tests 'app.locana.e2e.AppFlowTest'
+```
+
+Screenshots draw the activity window, so bottom sheets and dialogs (separate windows) do not appear in them, although the test interacts with them.
+
+### Build troubleshooting
+
+- `Unable to find method metafactory` while compiling unit-test Java (Hilt test components): the SDK platform's `core-for-system-modules.jar` is incomplete. Reinstall "Android SDK Platform 35" with the SDK Manager. A stripped copy without `java/lang/invoke/LambdaMetafactory` was the cause where this was built.
+- HTTP 429 from Maven Central during dependency download: retry, or resolve through a mirror with a local Gradle init script (do not commit mirror settings).
 
 ## Signing and release
 

@@ -313,6 +313,7 @@ fun QuestHistoryScreen(nav: NavController, vm: QuestHistoryViewModel = hiltViewM
 fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val q by vm.query.collectAsStateWithLifecycle()
+    val located by vm.located.collectAsStateWithLifecycle()
     BackScaffold("Landmarks", nav) { pad ->
         Column(Modifier.padding(pad)) {
             OutlinedTextField(
@@ -324,9 +325,9 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
             )
-            if (!vm.hasLocation) {
+            if (!located) {
                 Text(
-                    "Distances are approximate without location permission.",
+                    "We don't know where you are right now, so distances are hidden.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -342,7 +343,14 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
                         items(s.value, key = { it.id }) { l ->
                             ListItem(
                                 headlineContent = { Text(l.name) },
-                                supportingContent = { Text("${l.category.replaceFirstChar { it.uppercase() }} · ${Formatting.distance(l.distanceM)} away · ${l.description}", maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = {
+                                    val parts = listOfNotNull(
+                                        l.category.replaceFirstChar { it.uppercase() },
+                                        "${Formatting.distance(l.distanceM)} away".takeIf { located },
+                                        l.description,
+                                    )
+                                    Text(parts.joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                },
                                 trailingContent = { if (l.visited) StatusChip("Visited") else XpChip(l.rewardXp) },
                                 modifier = l.territoryId?.let { id -> Modifier.clickable(role = Role.Button) { nav.navigate(Routes.territory(id)) } } ?: Modifier,
                             )

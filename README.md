@@ -56,13 +56,13 @@ What exists and what was verified in this repository, as of this commit.
 - [x] Health and readiness checks, structured errors, rate limiting, Swagger UI in non-production, Dockerfile and Compose file
 - [x] 38 unit tests and 34 end-to-end tests against PostgreSQL, all passing (the PRD's 12-step scenario, negative authorization cases, concurrent claims, territory concurrency)
 
-### Android: written, not yet compiled
+### Android: built and tested on the JVM
 
 - [x] Every screen on the PRD list, wired to the real API, with loading, empty, error and offline states. A few are sheets, dialogs or sections rather than full screens: member detail (map sheet), quest completion (dialog), active quest progress (quest detail), activity feed (Circle tab), splash (system splash API)
-- [x] Domain module (tile grid shared with the backend, adaptive tracking policy, backoff, freshness, validation): 18 JVM tests passing
 - [x] Foreground tracking service, offline upload queue (Room), WorkManager retries, boot handling, notification sync, Keystore-encrypted refresh token, WebSocket client with backoff and re-subscription
-- [ ] **The app module has not been compiled.** This environment cannot reach Google Maven (`dl.google.com`), so the Android Gradle Plugin, AndroidX, Compose and Maps SDK cannot be downloaded. Expect a round of compile fixes on the first build. Robolectric and Compose UI tests are written but have not run.
-- [ ] Not tested on a physical device: background tracking, battery use, OEM restrictions
+- [x] Debug and release (R8) builds succeed
+- [x] 39 JVM tests pass: 18 domain tests (tile grid shared with the backend, tracking policy, backoff, freshness, validation), 20 Robolectric tests (offline queue, Room, WebSocket reconnect, ViewModel, Compose UI) and a full-app click-through against a running backend with a screenshot of every screen. That run found and fixed four bugs (see the commit history)
+- [ ] Not run on a device or emulator yet: Google Map rendering (needs a Maps key), background tracking, battery use, OEM restrictions, and the minified release build at runtime
 
 ### Not built, or limited on purpose
 

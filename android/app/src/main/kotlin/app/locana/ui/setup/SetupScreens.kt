@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -46,13 +48,17 @@ fun AvatarPicker(name: String, selected: String, onSelect: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AvatarColors.keys.forEach { key ->
             val isSel = key == selected
-            Avatar(
-                name.ifBlank { "?" }, key,
-                size = 56.dp,
-                modifier = Modifier
-                    .border(if (isSel) 3.dp else 0.dp, if (isSel) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape)
-                    .selectable(selected = isSel, role = Role.RadioButton, onClick = { onSelect(key) }),
-            )
+            // The selection ring sits outside the avatar with a gap, in the text color, so it stays
+            // visible on every avatar color (a teal ring on the teal avatar was invisible).
+            Box(
+                Modifier
+                    .clip(CircleShape)
+                    .selectable(selected = isSel, role = Role.RadioButton, onClick = { onSelect(key) })
+                    .border(3.dp, if (isSel) MaterialTheme.colorScheme.onSurface else Color.Transparent, CircleShape)
+                    .padding(5.dp),
+            ) {
+                Avatar(name.ifBlank { "?" }, key, size = 52.dp)
+            }
         }
     }
 }

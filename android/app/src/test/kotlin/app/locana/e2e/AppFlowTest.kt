@@ -111,6 +111,14 @@ class AppFlowTest {
     }
 
     /** Draws the real view tree into a bitmap (Robolectric native graphics renders Compose). */
+    private fun isDark(a: android.app.Activity): Boolean {
+        val v = a.window.decorView
+        val bmp = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
+        v.draw(Canvas(bmp))
+        val px = bmp.getPixel(v.width / 2, v.height / 2)
+        return android.graphics.Color.luminance(px) < 0.2f
+    }
+
     private fun shot(name: String) {
         compose.waitForIdle()
         compose.activityRule.scenario.onActivity { a ->
@@ -196,6 +204,9 @@ class AppFlowTest {
         back()
         click("Find landmarks")
         waitFor("Monumen Nasional")
+        // No GPS fix exists in this test, so no distance may be shown.
+        waitFor("distances are hidden", substring = true)
+        check(compose.onAllNodesWithText(" away", substring = true).fetchSemanticsNodes().isEmpty()) { "distance shown without a fix" }
         shot("13-landmarks")
         back()
 
@@ -212,7 +223,7 @@ class AppFlowTest {
         shot("16-collection")
         back()
         click("Friends leaderboard")
-        waitFor("Leaderboards")
+        waitFor("#1")
         shot("17-leaderboard")
         back()
 
@@ -229,7 +240,7 @@ class AppFlowTest {
         waitFor("Location sharing")
         shot("19-profile")
         click("Location sharing")
-        waitFor("Sharing with 1 circle(s)")
+        waitFor("Sharing with 1 circle")
         shot("20-sharing")
         click("Stop sharing everywhere")
         waitFor("You're not sharing with anyone")
@@ -241,6 +252,8 @@ class AppFlowTest {
         shot("21-privacy")
         back()
         click("Dark")
+        // Theme is stored in DataStore and applied on the next emission; wait for the dark surface.
+        compose.waitUntil(5_000) { compose.activityRule.scenario.let { sc -> var dark = false; sc.onActivity { a -> dark = isDark(a) }; dark } }
         shot("22-profile-dark")
         tab("Explore")
         waitFor("Today")
