@@ -2,6 +2,7 @@ package app.locana.ui.auth
 
 import android.app.Activity
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,7 +50,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun AuthColumn(content: @Composable () -> Unit) {
+internal fun AuthColumn(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier
             .fillMaxSize()

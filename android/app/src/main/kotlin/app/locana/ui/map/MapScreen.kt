@@ -52,6 +52,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import app.locana.BuildConfig
@@ -103,6 +105,8 @@ private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
 @Composable
 fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    // Picks up permissions granted or revoked in system settings while we were away.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
     val perms by vm.tracking.permissions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

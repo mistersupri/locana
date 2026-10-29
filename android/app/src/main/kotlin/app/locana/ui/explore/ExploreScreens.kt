@@ -42,6 +42,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import app.locana.BuildConfig
@@ -107,6 +109,7 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
     val exploring by vm.explorationEnabled.collectAsStateWithLifecycle()
     val toggleError by vm.toggleError.collectAsStateWithLifecycle()
     val perms by vm.tracking.permissions.collectAsStateWithLifecycle()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
         item {

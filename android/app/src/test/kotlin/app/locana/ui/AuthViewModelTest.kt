@@ -34,6 +34,8 @@ class AuthViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         server.start()
         g = TestGraph(server)
+        // DataStore files outlive a single test in Robolectric; start every test signed out.
+        runBlocking { g.tokens.clear() }
         vm = AuthViewModel(g.auth, g.settings)
     }
 

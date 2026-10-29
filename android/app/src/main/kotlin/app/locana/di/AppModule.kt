@@ -5,8 +5,6 @@ import androidx.room.Room
 import app.locana.BuildConfig
 import app.locana.data.api.LocanaApi
 import app.locana.data.auth.AuthInterceptor
-import app.locana.data.auth.KeystoreCipher
-import app.locana.data.auth.TokenCipher
 import app.locana.data.auth.TokenRefresher
 import app.locana.data.auth.TokenStore
 import app.locana.data.db.CacheDao
@@ -39,17 +37,6 @@ object AppModule {
         encodeDefaults = false
         coerceInputValues = true
     }
-
-    @Provides @Named("baseUrl")
-    fun baseUrl(): String {
-        val url = BuildConfig.API_BASE_URL
-        // Defense in depth with network_security_config: non-debug builds never talk plain HTTP.
-        check(BuildConfig.ALLOW_CLEARTEXT || url.startsWith("https://")) { "Release builds require an https API URL" }
-        return url
-    }
-
-    @Provides @Named("wsUrl")
-    fun wsUrl(@Named("baseUrl") base: String): String = base.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "ws"
 
     @Provides @Singleton @Named("bare")
     fun bareClient(): OkHttpClient = OkHttpClient.Builder()
@@ -88,8 +75,6 @@ object AppModule {
 
     @Provides fun cacheDao(db: LocanaDatabase): CacheDao = db.cache()
 
-    @Provides @Singleton
-    fun tokenCipher(): TokenCipher = KeystoreCipher()
 
     @Provides @Singleton
     fun appScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

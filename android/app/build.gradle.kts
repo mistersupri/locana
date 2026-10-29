@@ -84,7 +84,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    testOptions { unitTests.isIncludeAndroidResources = true }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // Lets Robolectric's native graphics capture Compose screenshots in the full-app flow test.
+        unitTests.all { it.systemProperty("robolectric.pixelCopyRenderMode", "hardware") }
+    }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 
@@ -152,4 +156,6 @@ dependencies {
     testImplementation(libs.work.testing)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
 }

@@ -62,7 +62,7 @@ class AuthViewModel @Inject constructor(private val auth: AuthRepository, privat
             _form.update { it.copy(error = "Enter your email or username and password") }
             return
         }
-        run({ auth.login(f.identifier, f.password) })
+        run({ auth.login(f.identifier, f.password) }, onOk = ::clearSecrets)
     }
 
     fun register() {
@@ -75,10 +75,15 @@ class AuthViewModel @Inject constructor(private val auth: AuthRepository, privat
         }
         _form.update { it.copy(fieldErrors = errors) }
         if (errors.isNotEmpty()) return
-        run({ auth.register(f.email, f.password, f.username, f.displayName) })
+        run({ auth.register(f.email, f.password, f.username, f.displayName) }, onOk = ::clearSecrets)
     }
 
-    fun google(idToken: String) = run({ auth.google(idToken) })
+    fun google(idToken: String) = run({ auth.google(idToken) }, onOk = ::clearSecrets)
+
+    /** Typed passwords must not outlive the sign-in, nor reappear after signing out. */
+    private fun clearSecrets() {
+        _form.value = AuthForm()
+    }
 
     fun sendResetCode() {
         val f = _form.value

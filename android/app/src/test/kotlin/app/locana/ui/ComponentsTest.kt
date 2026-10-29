@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.locana.data.api.QuestDto
 import app.locana.ui.auth.OnboardingScreen
@@ -48,7 +49,7 @@ class ComponentsTest {
     fun `tile track exposes progress to accessibility services`() {
         rule.setContent { LocanaTheme { TileTrack(0.5f) } }
         rule.onNode(SemanticsMatcher("has progress 0.5") { n ->
-            n.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo)?.current == 0.5f
+            n.config.getOrElseNullable(SemanticsProperties.ProgressBarRangeInfo) { null }?.current == 0.5f
         }).assertExists()
     }
 
@@ -74,8 +75,8 @@ class ComponentsTest {
         var signedIn = false
         rule.setContent { LocanaTheme { OnboardingScreen(onCreate = { created = true }, onSignIn = { signedIn = true }) } }
         rule.onNodeWithText("Nothing is shared until you start it").assertIsDisplayed()
-        rule.onNodeWithText("Create an account").performClick()
-        rule.onNodeWithText("I already have one").performClick()
+        rule.onNodeWithText("Create an account").performScrollTo().performClick()
+        rule.onNodeWithText("I already have one").performScrollTo().performClick()
         assertTrue(created && signedIn)
     }
 }

@@ -2,6 +2,7 @@ package app.locana.ui
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -51,7 +52,9 @@ import app.locana.ui.setup.SetupViewModel
 fun AuthGraph(nav: NavHostController, onboardingSeen: Boolean, expiredReason: String?) {
     // One AuthViewModel for the whole sign-in flow, so typed values survive moving between screens.
     val vm: AuthViewModel = hiltViewModel()
-    NavHost(nav, startDestination = if (onboardingSeen) Routes.LOGIN else Routes.ONBOARDING) {
+    // Fixed for this visit: marking onboarding as seen must not swap the graph under the user.
+    val start = remember { if (onboardingSeen) Routes.LOGIN else Routes.ONBOARDING }
+    NavHost(nav, startDestination = start) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 onCreate = { vm.markOnboardingSeen(); nav.navigate(Routes.REGISTER) { popUpTo(Routes.ONBOARDING) { inclusive = true } } },

@@ -59,7 +59,10 @@ class RealtimeClientTest {
     }
 
     @After
-    fun tearDown() = server.shutdown()
+    fun tearDown() {
+        sockets.forEach { it.close(1000, null) }
+        server.shutdown()
+    }
 
     @Test
     fun `reconnects with backoff and resubscribes`() = runBlocking {

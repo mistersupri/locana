@@ -48,6 +48,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import app.locana.data.api.PrivacyPatch
@@ -189,7 +191,8 @@ fun SharingScreen(nav: NavController, vm: SharingViewModel = hiltViewModel()) {
     val pending by vm.pending.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    LaunchedEffect(Unit) { vm.tracking.refreshPermissions() }
+    // Picks up permissions granted or revoked in system settings while we were away.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
     BackScaffold("Location sharing", nav) { pad ->
         LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(16.dp)) {
             val st = s

@@ -37,6 +37,9 @@ class MeRepository @Inject constructor(
 
     suspend fun refresh(): Result<MeDto> = apiCall { api.me() }.onSuccess { store(it) }
 
+    /** Called with the profile returned by sign-in, so the UI knows it before any refresh. */
+    suspend fun accept(m: MeDto) = store(m)
+
     private suspend fun store(m: MeDto) {
         _me.value = m
         cache.write(KEY, MeDto.serializer(), m)

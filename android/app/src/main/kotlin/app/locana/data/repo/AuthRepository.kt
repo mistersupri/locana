@@ -38,7 +38,7 @@ class AuthRepository @Inject constructor(
 
     private suspend fun accept(r: AuthResponse): MeDto {
         tokens.save(r.user.id, r.tokens)
-        cache.write(MeRepository.KEY, MeDto.serializer(), r.user)
+        me.accept(r.user)
         session.signedIn(r.user.id)
         return r.user
     }
