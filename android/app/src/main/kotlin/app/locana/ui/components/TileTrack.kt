@@ -58,12 +58,20 @@ fun TileTrack(
 
 /** Quest progress: one tile per step for small targets, a scaled track for distances and big counts. */
 @Composable
-fun QuestProgressTrack(progress: Int, target: Int, unit: String, modifier: Modifier = Modifier, fill: Color = MaterialTheme.colorScheme.primary) {
+fun QuestProgressTrack(
+    progress: Int,
+    target: Int,
+    unit: String,
+    modifier: Modifier = Modifier,
+    fill: Color = MaterialTheme.colorScheme.primary,
+    track: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+) {
     val discrete = unit != "meters" && target in 1..12
     TileTrack(
         fraction = if (target == 0) 0f else progress.toFloat() / target,
         segments = if (discrete) target else 12,
         modifier = modifier,
         fill = fill,
+        track = track,
     )
 }

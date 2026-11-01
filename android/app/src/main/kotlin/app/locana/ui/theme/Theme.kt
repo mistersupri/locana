@@ -27,6 +27,7 @@ val LocanaShapes = Shapes(
 )
 
 val LocalReward = staticCompositionLocalOf { DarkReward }
+val LocalHero = staticCompositionLocalOf { LightHero }
 val LocalReducedMotion = staticCompositionLocalOf { false }
 val LocalDarkTheme = staticCompositionLocalOf { true }
 
@@ -44,6 +45,7 @@ fun LocanaTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> U
     }
     CompositionLocalProvider(
         LocalReward provides if (dark) DarkReward else LightReward,
+        LocalHero provides if (dark) DarkHero else LightHero,
         LocalReducedMotion provides reduced,
         LocalDarkTheme provides dark,
     ) {

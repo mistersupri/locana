@@ -44,6 +44,9 @@ import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.locana.BuildConfig
 import app.locana.ui.components.PrimaryButton
+import app.locana.ui.components.HeroPanel
+import app.locana.ui.components.TileField
+import app.locana.ui.theme.LocalHero
 import app.locana.ui.components.SecondaryButton
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -217,14 +220,22 @@ fun ForgotPasswordScreen(vm: AuthViewModel, onDone: () -> Unit, onBack: () -> Un
 @Composable
 fun OnboardingScreen(onCreate: () -> Unit, onSignIn: () -> Unit) {
     AuthColumn {
-        Spacer(Modifier.height(40.dp))
-        Wordmark()
-        Text(
-            "Share where you are with the people you trust, and turn everyday walks into a map you reveal together.",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(top = 12.dp),
-        )
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(16.dp))
+        // First-run hero: the tile field lights up once to show the idea of the game (explanation,
+        // seen once, so a short reveal is allowed; skipped with reduced motion).
+        val hero = LocalHero.current
+        HeroPanel {
+            Text("Locana", style = MaterialTheme.typography.displaySmall, color = hero.accent)
+            Text(
+                "Share where you are with the people you trust, and turn everyday walks into a map you reveal together.",
+                style = MaterialTheme.typography.titleLarge,
+                color = hero.text,
+                modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
+            )
+            TileField(lit = 22, columns = 14, rows = 5, tileSize = 16.dp, gap = 4.dp, animateIn = true, seed = 11)
+            Text("Every new street you walk lights a tile.", style = MaterialTheme.typography.bodySmall, color = hero.muted, modifier = Modifier.padding(top = 10.dp))
+        }
+        Spacer(Modifier.height(24.dp))
         Text("Your circle", style = MaterialTheme.typography.titleMedium)
         Text(
             "A family, a partner, close friends. Each circle sees you only while you share with it.",

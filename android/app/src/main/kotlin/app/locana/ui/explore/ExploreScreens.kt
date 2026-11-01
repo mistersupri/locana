@@ -1,6 +1,34 @@
 package app.locana.ui.explore
 
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Museum
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.vector.ImageVector
+import app.locana.ui.components.HeroPanel
+import app.locana.ui.components.IconTile
+import app.locana.ui.components.RollingNumber
+import app.locana.ui.components.TileField
+import app.locana.ui.components.conditionIcon
+import app.locana.ui.components.pressScale
+import app.locana.ui.theme.HeroNumberStyle
+import app.locana.ui.theme.LocalHero
+import app.locana.ui.theme.Motion
+import app.locana.ui.theme.Palette
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -110,21 +138,24 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
     val toggleError by vm.toggleError.collectAsStateWithLifecycle()
     val perms by vm.tracking.permissions.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
+    val data = (state as? UiState.Data)?.value
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
         item {
             Text("Explore", style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(12.dp))
-            ExplorationToggle(
-                enabled = exploring,
+            TodayHero(
+                daily = data?.quests.orEmpty().filter { it.type == "DAILY" },
+                tilesRevealed = data?.stats?.tilesDiscovered ?: 0,
+                exploring = exploring,
                 hasPermission = perms.anyLocation,
                 error = toggleError,
                 onToggle = { if (perms.anyLocation) vm.setExploration(it) else nav.navigate(Routes.PERMISSIONS) },
             )
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { nav.navigate(Routes.EXPLORATION_MAP) }) { Text("My explored map") }
-                TextButton(onClick = { nav.navigate(Routes.LANDMARKS) }) { Text("Find landmarks") }
-                TextButton(onClick = { nav.navigate(Routes.QUEST_HISTORY) }) { Text("History") }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ShortcutChip("Explored map", Icons.Outlined.GridView) { nav.navigate(Routes.EXPLORATION_MAP) }
+                ShortcutChip("Landmarks", Icons.Outlined.Museum) { nav.navigate(Routes.LANDMARKS) }
+                ShortcutChip("History", Icons.Outlined.History) { nav.navigate(Routes.QUEST_HISTORY) }
             }
         }
         when (val s = state) {
@@ -132,17 +163,6 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
             is UiState.Error -> item { ErrorState(s.message, vm::load) }
             is UiState.Data -> {
                 s.cachedAtMs?.let { at -> item { CachedNotice(at, { vm.load() }, Modifier.padding(top = 8.dp)) } }
-                s.value.events.filter { it.live }.forEach { e ->
-                    item(key = "ev" + e.id) {
-                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(e.name, style = MaterialTheme.typography.titleMedium)
-                                Text(e.description, style = MaterialTheme.typography.bodyMedium)
-                                Text(endsIn(e.endsAt), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
-                            }
-                        }
-                    }
-                }
                 val groups = s.value.quests.groupBy { it.type }
                 if (s.value.quests.isEmpty()) {
                     item {
@@ -152,11 +172,24 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
                         )
                     }
                 }
-                listOf("SPECIAL" to "Event", "DAILY" to "Today", "WEEKLY" to "This week").forEach { (type, title) ->
-                    val qs = groups[type].orEmpty()
-                    if (qs.isNotEmpty()) {
-                        item(key = "h$type") { SectionHeader(title) }
-                        items(qs, key = { it.id }) { q -> QuestCard(q) { nav.navigate(Routes.quest(q.id)) } }
+                // Rhythm: the event is one wide banner, today's quests a list, the week a swipeable row.
+                val specials = groups["SPECIAL"].orEmpty()
+                val season = s.value.events.firstOrNull { it.live }
+                if (specials.isNotEmpty() || season != null) item(key = "h-event") { SectionHeader("Event") }
+                items(specials, key = { it.id }) { q -> EventQuestBanner(q, season?.name) { nav.navigate(Routes.quest(q.id)) } }
+                if (specials.isEmpty() && season != null) item(key = "season") { SeasonNote(season.name, season.description, endsIn(season.endsAt)) }
+                val daily = groups["DAILY"].orEmpty()
+                if (daily.isNotEmpty()) {
+                    item(key = "h-daily") { SectionHeader("Today") }
+                    items(daily, key = { it.id }) { q -> QuestCard(q) { nav.navigate(Routes.quest(q.id)) } }
+                }
+                val weekly = groups["WEEKLY"].orEmpty()
+                if (weekly.isNotEmpty()) {
+                    item(key = "h-weekly") { SectionHeader("This week") }
+                    item(key = "weekly") {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(end = 16.dp)) {
+                            items(weekly, key = { it.id }) { q -> WeeklyQuestCard(q) { nav.navigate(Routes.quest(q.id)) } }
+                        }
                     }
                 }
             }
@@ -164,50 +197,198 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
     }
 }
 
+/**
+ * Focal point of Explore: how many of today's quests are done, as a big number, with the tiles the
+ * player has revealed lit in the field beside it. The exploration switch lives here because it is
+ * what makes any of this count.
+ */
 @Composable
-private fun ExplorationToggle(enabled: Boolean, hasPermission: Boolean, error: String?, onToggle: (Boolean) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium) {
-        Column(Modifier.clickable(role = Role.Switch) { onToggle(!enabled) }.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Exploration", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (enabled) "On. Your walks reveal tiles and count for quests. Your circles do not see where you went."
-                        else "Off. Turn on to let the game use your location for tiles, landmarks and quests. Separate from sharing.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+private fun TodayHero(daily: List<QuestDto>, tilesRevealed: Int, exploring: Boolean, hasPermission: Boolean, error: String?, onToggle: (Boolean) -> Unit) {
+    val hero = LocalHero.current
+    val done = daily.count { it.status == "COMPLETED" || it.status == "CLAIMED" }
+    HeroPanel {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Text("Today", style = MaterialTheme.typography.labelLarge, color = hero.muted)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("$done", style = HeroNumberStyle, color = hero.text)
+                    Text(" / ${daily.size} quests", style = MaterialTheme.typography.titleMedium, color = hero.muted, modifier = Modifier.padding(bottom = 10.dp))
                 }
-                Spacer(Modifier.width(12.dp))
-                Switch(checked = enabled, onCheckedChange = onToggle)
             }
-            if (!hasPermission) Text("Needs location permission first.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            TileField(
+                lit = tilesRevealed,
+                columns = 8,
+                rows = 4,
+                tileSize = 12.dp,
+                gap = 3.dp,
+                description = "$tilesRevealed map tiles revealed",
+            )
+        }
+        Text(
+            if (tilesRevealed == 0) "Your map is still dark. Walk somewhere new to light the first tile." else "$tilesRevealed tiles revealed so far",
+            style = MaterialTheme.typography.bodySmall,
+            color = hero.muted,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        HorizontalDivider(Modifier.padding(vertical = 14.dp), color = hero.tileHidden)
+        Row(
+            Modifier.fillMaxWidth().clickable(role = Role.Switch) { onToggle(!exploring) },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Exploration " + if (exploring) "on" else "off", style = MaterialTheme.typography.titleSmall, color = hero.text)
+                Text(
+                    if (exploring) "Walks reveal tiles and count for quests. Circles never see where you went."
+                    else "Turn on so walks count. Separate from sharing your location.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = hero.muted,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked = exploring,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Palette.Navy950,
+                    checkedTrackColor = hero.accent,
+                    uncheckedThumbColor = hero.muted,
+                    uncheckedTrackColor = hero.raised,
+                    uncheckedBorderColor = hero.muted,
+                ),
+            )
+        }
+        if (!hasPermission) Text("Needs location permission first.", style = MaterialTheme.typography.labelMedium, color = hero.accent, modifier = Modifier.padding(top = 6.dp))
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+@Composable
+private fun ShortcutChip(label: String, icon: ImageVector, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(label) },
+        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.heightIn(min = 48.dp),
+    )
+}
+
+/** Special events get one wide banner with the reward up front: the rarest, most valuable quest. */
+@Composable
+private fun EventQuestBanner(q: QuestDto, seasonName: String?, onClick: () -> Unit) {
+    val reward = LocalReward.current
+    val source = remember { MutableInteractionSource() }
+    Surface(
+        color = reward.rewardContainer,
+        contentColor = reward.onRewardContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().pressScale(source).clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconTile(conditionIcon(q.condition), reward.reward, Palette.Navy950)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(q.name, style = MaterialTheme.typography.titleLarge)
+                    Text(listOfNotNull(seasonName, endsIn(q.expiresAt)).joinToString(" · "), style = MaterialTheme.typography.labelMedium)
+                }
+                Text("+${q.rewardXp} XP", style = MaterialTheme.typography.titleMedium)
+            }
+            Text(q.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp, bottom = 12.dp))
+            QuestProgressTrack(q.progress, q.target, q.unit, fill = reward.reward)
+            Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
 
 @Composable
+private fun SeasonNote(name: String, description: String, ends: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(name, style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodyMedium)
+            Text(ends, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+/**
+ * Daily quest card. The square icon tells the kind of outing at a glance; a finished quest turns
+ * teal and says "Claim" so the one action left is obvious. Color change is a 180 ms crossfade
+ * (state indication); the card scales slightly on press.
+ */
+@Composable
 fun QuestCard(q: QuestDto, onClick: () -> Unit) {
     val completed = q.status == "COMPLETED"
     val claimed = q.status == "CLAIMED"
+    val scheme = MaterialTheme.colorScheme
+    val container by animateColorAsState(if (completed) scheme.primaryContainer else scheme.surfaceContainer, tween(Motion.SMALL_MS), label = "quest")
+    val source = remember { MutableInteractionSource() }
     Surface(
-        color = if (completed) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = if (completed) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        color = container,
+        contentColor = if (completed) scheme.onPrimaryContainer else scheme.onSurface,
         shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).clickable(role = Role.Button, onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp)
+            .pressScale(source)
+            .clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
+    ) {
+        Row(Modifier.padding(16.dp)) {
+            IconTile(
+                conditionIcon(q.condition),
+                container = if (completed) scheme.primary else scheme.surfaceContainerHighest,
+                content = if (completed) scheme.onPrimary else scheme.onSurfaceVariant,
+                modifier = Modifier.alpha(if (claimed) 0.6f else 1f),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(q.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    if (claimed) StatusChip("Claimed") else XpChip(q.rewardXp)
+                }
+                Text(q.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+                QuestProgressTrack(q.progress, q.target, q.unit)
+                Row(Modifier.padding(top = 6.dp)) {
+                    Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                    Text(
+                        if (completed) "Ready to claim" else if (claimed) "Done" else endsIn(q.expiresAt),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (completed) scheme.primary else LocalContentColor.current,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Weekly quests are longer goals: compact cards in a row, so the week reads as a set. */
+@Composable
+private fun WeeklyQuestCard(q: QuestDto, onClick: () -> Unit) {
+    val completed = q.status == "COMPLETED"
+    val scheme = MaterialTheme.colorScheme
+    val source = remember { MutableInteractionSource() }
+    Surface(
+        color = if (completed) scheme.primaryContainer else scheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.width(220.dp).pressScale(source).clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(q.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                if (claimed) StatusChip("Claimed") else XpChip(q.rewardXp)
+                IconTile(conditionIcon(q.condition), scheme.surfaceContainerHighest, scheme.onSurfaceVariant, size = 36.dp)
+                Spacer(Modifier.weight(1f))
+                XpChip(q.rewardXp)
             }
-            Text(q.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
+            Text(q.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(q.description, style = MaterialTheme.typography.bodySmall, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 10.dp))
             QuestProgressTrack(q.progress, q.target, q.unit)
-            Row(Modifier.padding(top = 6.dp)) {
-                Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-                Text(if (completed) "Ready to claim" else endsIn(q.expiresAt), style = MaterialTheme.typography.labelMedium)
-            }
+            Text(
+                if (completed) "Ready to claim" else "${Formatting.progress(q.progress, q.target, q.unit)} · ${endsIn(q.expiresAt)}",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -227,14 +408,38 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                     val q = s.value
                     LazyColumn(contentPadding = PaddingValues(16.dp)) {
                         item {
-                            Text(q.name, style = MaterialTheme.typography.headlineMedium)
-                            Text(q.description, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
-                            QuestProgressTrack(q.progress, q.target, q.unit, Modifier.height(14.dp))
-                            Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-                            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                XpChip(q.rewardXp)
-                                StatusChip(q.type.lowercase().replaceFirstChar { it.uppercase() })
-                                StatusChip(if (q.status == "ACTIVE") endsIn(q.expiresAt) else q.status.lowercase().replaceFirstChar { it.uppercase() })
+                            // Focal point: how far along this quest is, as the big number.
+                            val hero = LocalHero.current
+                            HeroPanel {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconTile(conditionIcon(q.condition), hero.raised, hero.accent)
+                                    Spacer(Modifier.width(14.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(q.name, style = MaterialTheme.typography.headlineSmall, color = hero.text)
+                                        Text(
+                                            q.type.lowercase().replaceFirstChar { it.uppercase() } + " · " +
+                                                if (q.status == "ACTIVE") endsIn(q.expiresAt) else q.status.lowercase().replaceFirstChar { it.uppercase() },
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = hero.muted,
+                                        )
+                                    }
+                                }
+                                Text(q.description, style = MaterialTheme.typography.bodyLarge, color = hero.text, modifier = Modifier.padding(top = 14.dp))
+                                Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.Bottom) {
+                                    Text(
+                                        if (q.unit == "meters") Formatting.distance(q.progress) else "${q.progress}",
+                                        style = HeroNumberStyle,
+                                        color = hero.text,
+                                    )
+                                    Text(
+                                        " / " + if (q.unit == "meters") Formatting.distance(q.target) else "${q.target} ${q.unit}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = hero.muted,
+                                        modifier = Modifier.padding(bottom = 10.dp).weight(1f),
+                                    )
+                                    Text("+${q.rewardXp} XP", style = MaterialTheme.typography.titleLarge, color = hero.reward, modifier = Modifier.padding(bottom = 8.dp))
+                                }
+                                QuestProgressTrack(q.progress, q.target, q.unit, Modifier.height(14.dp).padding(top = 2.dp), fill = hero.accent, track = hero.tileHidden)
                             }
                             Text(
                                 "Progress counts only from precise location fixes taken while exploration is on. Repeat visits to the same tile do not count twice.",
@@ -274,7 +479,7 @@ fun QuestCompleteDialog(name: String, xp: Int, already: Boolean, achievements: L
         text = {
             Column {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                Text("+$xp XP", style = NumberStyle, color = reward.reward, modifier = Modifier.padding(vertical = 8.dp))
+                Box(Modifier.padding(vertical = 8.dp)) { RollingNumber(xp, NumberStyle, reward.reward, prefix = "+", suffix = " XP") }
                 achievements.forEach { Text("Achievement: $it", style = MaterialTheme.typography.bodyMedium) }
                 collectibles.forEach { Text("Collected: $it", style = MaterialTheme.typography.bodyMedium) }
                 if (already) Text("This reward was added to your XP earlier.", style = MaterialTheme.typography.bodySmall)

@@ -63,6 +63,11 @@ import app.locana.domain.Freshness
 import app.locana.ui.auth.Field
 import app.locana.ui.auth.FormError
 import app.locana.ui.components.Avatar
+import app.locana.ui.components.AvatarStack
+import app.locana.ui.components.HeroPanel
+import app.locana.ui.components.HeroPrimaryButton
+import app.locana.ui.components.HeroSecondaryButton
+import app.locana.ui.theme.LocalHero
 import app.locana.ui.components.CachedNotice
 import app.locana.ui.components.EmptyState
 import app.locana.ui.components.ErrorState
@@ -122,26 +127,51 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp)) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
-                    Row(Modifier.clickable(role = Role.Button, onClickLabel = "Switch circle") { switcher = true }, verticalAlignment = Alignment.CenterVertically) {
-                        Text(list?.value?.firstOrNull { it.id == selected }?.name ?: "Circle", style = MaterialTheme.typography.headlineLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            // Focal point: who is in this circle and who is sharing with you right now.
+            val hero = LocalHero.current
+            val detail = (state as? UiState.Data)?.value?.detail
+            HeroPanel {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        Row(Modifier.clickable(role = Role.Button, onClickLabel = "Switch circle") { switcher = true }, verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                list?.value?.firstOrNull { it.id == selected }?.name ?: "Circle",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = hero.text,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = hero.text)
+                        }
+                        DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
+                            list?.value.orEmpty().forEach { c -> DropdownMenuItem(text = { Text(c.name) }, onClick = { switcher = false; vm.select(c.id) }) }
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text("New circle") }, onClick = { switcher = false; nav.navigate(Routes.CIRCLE_CREATE) })
+                            DropdownMenuItem(text = { Text("Join with a code") }, onClick = { switcher = false; nav.navigate(Routes.circleJoin()) })
+                        }
                     }
-                    DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
-                        list?.value.orEmpty().forEach { c -> DropdownMenuItem(text = { Text(c.name) }, onClick = { switcher = false; vm.select(c.id) }) }
-                        HorizontalDivider()
-                        DropdownMenuItem(text = { Text("New circle") }, onClick = { switcher = false; nav.navigate(Routes.CIRCLE_CREATE) })
-                        DropdownMenuItem(text = { Text("Join with a code") }, onClick = { switcher = false; nav.navigate(Routes.circleJoin()) })
+                    selected?.let { id -> IconButton(onClick = { nav.navigate(Routes.circleSettings(id)) }) { Icon(Icons.Outlined.Settings, contentDescription = "Circle settings", tint = hero.text) } }
+                }
+                if (detail != null) {
+                    val sharing = detail.members.count { it.sharingWithMe == true }
+                    val count = detail.members.size
+                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AvatarStack(detail.members.map { it.displayName to it.avatarKey })
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            (if (count == 1) "1 member" else "$count members") + " · " +
+                                (if (sharing == 0) "nobody sharing with you" else "$sharing sharing with you"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = hero.muted,
+                        )
                     }
                 }
-                selected?.let { id -> IconButton(onClick = { nav.navigate(Routes.circleSettings(id)) }) { Icon(Icons.Outlined.Settings, contentDescription = "Circle settings") } }
-            }
-            selected?.let { id ->
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PrimaryButton("Invite", { nav.navigate(Routes.circleInvite(id)) })
-                    SecondaryButton("Members", { nav.navigate(Routes.circleMembers(id)) })
-                    SecondaryButton("Places", { nav.navigate(Routes.places(id)) })
+                selected?.let { id ->
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HeroPrimaryButton("Invite", { nav.navigate(Routes.circleInvite(id)) })
+                        HeroSecondaryButton("Members", { nav.navigate(Routes.circleMembers(id)) })
+                        HeroSecondaryButton("Places", { nav.navigate(Routes.places(id)) })
+                    }
                 }
             }
         }
@@ -152,7 +182,7 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
                 val h = s.value
                 s.cachedAtMs?.let { item { CachedNotice(it, { vm.load() }, Modifier.padding(top = 12.dp)) } }
                 item {
-                    SectionHeader("Members")
+                    SectionHeader("Who's here")
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         h.detail.members.forEach { m ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {

@@ -1,6 +1,17 @@
 package app.locana.ui.play
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Leaderboard
+import androidx.compose.runtime.remember
+import app.locana.domain.Formatting
+import app.locana.ui.components.HeroPanel
+import app.locana.ui.components.IconTile
+import app.locana.ui.components.pressScale
+import app.locana.ui.theme.HeroNumberStyle
+import app.locana.ui.theme.LocalHero
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -112,37 +123,53 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
         } else {
             val p = m.progress
             item {
-                // Focal point of the tab: current level and how far to the next one.
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) { nav.navigate(Routes.LEVELS) }) {
-                    Column(Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Avatar(m.profile.displayName, m.profile.avatarKey, size = 52.dp, framed = m.profile.avatarFrameKey != null)
-                            Spacer(Modifier.width(14.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("Level ${p.level}", style = NumberStyle)
-                                m.profile.titleKey?.let { Text(it.removePrefix("title_").replaceFirstChar { c -> c.uppercase() }, style = MaterialTheme.typography.labelLarge, color = reward.reward) }
-                            }
-                            Text("${p.totalXp} XP", style = MaterialTheme.typography.titleMedium, color = reward.reward)
+                // Focal point of the tab: the level number, and how far to the next one.
+                val hero = LocalHero.current
+                val source = remember { MutableInteractionSource() }
+                HeroPanel(Modifier.pressScale(source).clickable(source, indication = LocalIndication.current, role = Role.Button) { nav.navigate(Routes.LEVELS) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(m.profile.displayName, m.profile.avatarKey, size = 40.dp, framed = m.profile.avatarFrameKey != null)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(m.profile.displayName, style = MaterialTheme.typography.titleMedium, color = hero.text)
+                            Text(
+                                m.profile.titleKey?.removePrefix("title_")?.replaceFirstChar { c -> c.uppercase() } ?: "@${m.username}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (m.profile.titleKey != null) hero.reward else hero.muted,
+                            )
                         }
-                        Spacer(Modifier.height(16.dp))
-                        TileTrack(p.levelProgress.toFloat(), fill = reward.reward, height = 12.dp)
-                        Text(
-                            p.nextLevelXp?.let { "${it - p.totalXp} XP to level ${p.level + 1}" } ?: "Top level reached",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
+                        StreakBadge(p.currentStreak)
                     }
+                    Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.Bottom) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Level", style = MaterialTheme.typography.labelLarge, color = hero.muted)
+                            Text("${p.level}", style = HeroNumberStyle, color = hero.text)
+                        }
+                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(bottom = 8.dp)) {
+                            Text("${p.totalXp} XP", style = MaterialTheme.typography.titleLarge, color = hero.reward)
+                            Text(
+                                p.nextLevelXp?.let { "${it - p.totalXp} to level ${p.level + 1}" } ?: "Top level reached",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = hero.muted,
+                            )
+                        }
+                    }
+                    TileTrack(p.levelProgress.toFloat(), Modifier.padding(top = 10.dp), fill = hero.reward, track = hero.tileHidden, height = 12.dp)
                 }
             }
             item {
-                Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Stat("${p.currentStreak}", "day streak")
-                    Stat("${p.tilesDiscovered}", "tiles")
-                    Stat("${stats?.landmarksVisited ?: 0}", "landmarks")
-                    Stat("${p.questsCompleted}", "quests")
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Row(Modifier.padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Stat("${p.tilesDiscovered}", "tiles")
+                        Stat("${stats?.landmarksVisited ?: 0}", "landmarks")
+                        Stat("${p.questsCompleted}", "quests")
+                        Stat(Formatting.distance(p.totalDistanceM), "walked")
+                    }
                 }
-                stats?.let { s -> WeekBars(s.last7Days.map { it.xp }) }
+                stats?.let { s ->
+                    Spacer(Modifier.height(16.dp))
+                    WeekBars(s.last7Days.map { it.xp })
+                }
             }
             if (recent.isNotEmpty()) {
                 item { SectionHeader("Recently unlocked", actionLabel = "All", onAction = { nav.navigate(Routes.ACHIEVEMENTS) }) }
@@ -150,11 +177,11 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
             }
             item {
                 SectionHeader("More")
-                NavRow("Achievements", "Milestones for exploring and playing together") { nav.navigate(Routes.ACHIEVEMENTS) }
-                NavRow("Collection", "Frames, titles, markers and landmark stamps") { nav.navigate(Routes.COLLECTIBLES) }
-                NavRow("Friends leaderboard", "This week's XP among your circles") { nav.navigate(Routes.leaderboard("friends")) }
-                NavRow("Circle leaderboard", "Who's carrying the team this week") { nav.navigate(Routes.leaderboard("circle")) }
-                NavRow("Level path", "XP needed for each level and its reward") { nav.navigate(Routes.LEVELS) }
+                NavRow("Achievements", "Milestones for exploring and playing together", Icons.Outlined.MilitaryTech) { nav.navigate(Routes.ACHIEVEMENTS) }
+                NavRow("Collection", "Frames, titles, markers and landmark stamps", Icons.Outlined.Approval) { nav.navigate(Routes.COLLECTIBLES) }
+                NavRow("Friends leaderboard", "This week's XP among your circles", Icons.Outlined.Leaderboard) { nav.navigate(Routes.leaderboard("friends")) }
+                NavRow("Circle leaderboard", "Who's carrying the team this week", Icons.Outlined.Groups) { nav.navigate(Routes.leaderboard("circle")) }
+                NavRow("Level path", "XP needed for each level and its reward", Icons.AutoMirrored.Outlined.TrendingUp) { nav.navigate(Routes.LEVELS) }
             }
         }
     }
@@ -181,13 +208,29 @@ private fun WeekBars(values: List<Int>) {
 }
 
 @Composable
-private fun NavRow(title: String, sub: String, onClick: () -> Unit) {
+private fun NavRow(title: String, sub: String, icon: ImageVector, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
     ListItem(
+        leadingContent = { IconTile(icon, scheme.surfaceContainerHighest, scheme.onSurfaceVariant, size = 40.dp) },
         headlineContent = { Text(title) },
         supportingContent = { Text(sub) },
         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
         modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
     )
+}
+
+/** Streak as a flame badge: only shown once there is a streak, so it never nags with a zero. */
+@Composable
+private fun StreakBadge(days: Int) {
+    if (days <= 0) return
+    val hero = LocalHero.current
+    Surface(color = hero.raised, shape = RoundedCornerShape(50)) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.LocalFireDepartment, contentDescription = null, tint = hero.reward, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("$days day streak", style = MaterialTheme.typography.labelMedium, color = hero.text)
+        }
+    }
 }
 
 @Composable

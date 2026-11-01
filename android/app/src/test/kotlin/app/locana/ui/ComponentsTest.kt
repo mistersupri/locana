@@ -74,7 +74,7 @@ class ComponentsTest {
         var created = false
         var signedIn = false
         rule.setContent { LocanaTheme { OnboardingScreen(onCreate = { created = true }, onSignIn = { signedIn = true }) } }
-        rule.onNodeWithText("Nothing is shared until you start it").assertIsDisplayed()
+        rule.onNodeWithText("Nothing is shared until you start it").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Create an account").performScrollTo().performClick()
         rule.onNodeWithText("I already have one").performScrollTo().performClick()
         assertTrue(created && signedIn)

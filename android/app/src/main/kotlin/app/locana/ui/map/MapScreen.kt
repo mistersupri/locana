@@ -63,6 +63,8 @@ import app.locana.domain.Freshness
 import app.locana.domain.Presence
 import app.locana.domain.TileBounds
 import app.locana.ui.components.Avatar
+import app.locana.ui.components.HeroPrimaryButton
+import app.locana.ui.theme.LocalHero
 import app.locana.ui.components.EmptyState
 import app.locana.ui.components.PrimaryButton
 import app.locana.ui.components.SecondaryButton
@@ -312,14 +314,16 @@ private fun TopBar(ui: MapUi, onSelect: (String) -> Unit, onRefresh: () -> Unit,
 
 @Composable
 private fun ShareCard(circleName: String, onShare: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, shadowElevation = 3.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    // The one action that matters on an unshared map, so it gets the navy panel and the teal button.
+    val hero = LocalHero.current
+    Surface(color = hero.background, contentColor = hero.text, shape = MaterialTheme.shapes.large, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("You're not sharing with $circleName", style = MaterialTheme.typography.titleSmall)
-                Text("They see you as hidden until you start.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("You're not sharing with $circleName", style = MaterialTheme.typography.titleSmall, color = hero.text)
+                Text("They see you as hidden until you start.", style = MaterialTheme.typography.bodySmall, color = hero.muted)
             }
             Spacer(Modifier.width(12.dp))
-            PrimaryButton("Share", onShare)
+            HeroPrimaryButton("Share", onShare)
         }
     }
 }

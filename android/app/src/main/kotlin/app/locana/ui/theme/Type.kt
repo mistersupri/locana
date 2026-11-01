@@ -39,3 +39,6 @@ val LocanaTypography = Typography(
 
 /** Big numbers (XP, level, rank). */
 val NumberStyle = TextStyle(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 32.sp)
+
+/** Hero numbers (level, today's progress): the one oversized element on a tab, its focal point. */
+val HeroNumberStyle = TextStyle(fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 56.sp, lineHeight = 58.sp)

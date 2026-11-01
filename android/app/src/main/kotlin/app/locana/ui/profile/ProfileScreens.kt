@@ -58,6 +58,9 @@ import app.locana.domain.Freshness
 import app.locana.ui.auth.Field
 import app.locana.ui.auth.FormError
 import app.locana.ui.components.Avatar
+import app.locana.ui.components.HeroPanel
+import app.locana.ui.components.HeroSecondaryButton
+import app.locana.ui.theme.LocalHero
 import app.locana.ui.components.EmptyState
 import app.locana.ui.components.ErrorState
 import app.locana.ui.components.LoadingState
@@ -106,17 +109,27 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(vertical = 16.dp)) {
         item {
             val m = me
+            val hero = LocalHero.current
             if (m == null) LoadingState()
-            else Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(m.profile.displayName, m.profile.avatarKey, size = 72.dp, framed = m.profile.avatarFrameKey != null)
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(m.profile.displayName, style = MaterialTheme.typography.headlineSmall)
-                    Text("@${m.username} · level ${m.progress.level}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    m.profile.bio?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp)) }
+            else HeroPanel(Modifier.padding(horizontal = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(m.profile.displayName, m.profile.avatarKey, size = 72.dp, framed = m.profile.avatarFrameKey != null)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(m.profile.displayName, style = MaterialTheme.typography.headlineSmall, color = hero.text)
+                        Text("@${m.username}", style = MaterialTheme.typography.bodyMedium, color = hero.muted)
+                        Text(
+                            "Level ${m.progress.level} · ${m.progress.tilesDiscovered} tiles",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = hero.reward,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 }
+                m.profile.bio?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = hero.text, modifier = Modifier.padding(top = 12.dp)) }
+                HeroSecondaryButton("Edit profile", { nav.navigate(Routes.PROFILE_EDIT) }, Modifier.padding(top = 16.dp))
             }
-            SecondaryButton("Edit profile", { nav.navigate(Routes.PROFILE_EDIT) }, Modifier.padding(16.dp))
+            Spacer(Modifier.height(8.dp))
         }
         item {
             NavItem("Notifications", "Arrivals, quests and circle news", badge = unread) { nav.navigate(Routes.NOTIFICATIONS) }

@@ -202,7 +202,7 @@ class AppFlowTest {
         waitFor("Progress counts only", substring = true)
         shot("12-quest-detail")
         back()
-        click("Find landmarks")
+        click("Landmarks")
         waitFor("Monumen Nasional")
         // No GPS fix exists in this test, so no distance may be shown.
         waitFor("distances are hidden", substring = true)
@@ -212,7 +212,7 @@ class AppFlowTest {
 
         // Play: level, achievements, collection, leaderboard
         tab("Play")
-        waitFor("Level 1")
+        waitFor("to level 2", substring = true)
         shot("14-play")
         click("Achievements")
         waitFor("First Discovery")

@@ -104,3 +104,24 @@ val AvatarColors = mapOf(
     "explorer_moss" to (Color(0xFF4F6B2E) to Color.White),
     "explorer_plum" to (Color(0xFF6E4A7E) to Color.White),
 )
+
+/*
+ * "Night map" hero panels (why): each main tab has one navy panel that holds its focal point
+ * (level, today's quests, the circle, you). Navy in both themes keeps the brand voice and makes
+ * the panel read as the map at night, the place the game happens. Text on it is checked for AA:
+ * Mist100 on Navy950 15.7:1, Mist300 8.9:1, Teal300 8.7:1, Amber400 10:1; on Navy850 the same
+ * pairs stay above 6:1.
+ */
+@Immutable
+data class HeroColors(
+    val background: Color,
+    val raised: Color,
+    val text: Color,
+    val muted: Color,
+    val accent: Color,
+    val reward: Color,
+    val tileHidden: Color,
+)
+
+val LightHero = HeroColors(Palette.Navy950, Palette.Navy850, Palette.Mist100, Palette.Mist300, Palette.Teal300, Palette.Amber400, Color(0xFF3A5175))
+val DarkHero = HeroColors(Palette.Navy850, Palette.Navy800, Palette.Mist100, Palette.Mist300, Palette.Teal300, Palette.Amber400, Color(0xFF4A6085))
