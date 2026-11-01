@@ -1,5 +1,7 @@
 # Locana
 
+[![CI](https://github.com/mistersupri/locana/actions/workflows/ci.yml/badge.svg)](https://github.com/mistersupri/locana/actions/workflows/ci.yml)
+
 Social GPS tracker and location-based game for Android. People share their live location with circles they trust (a partner, family, friends) and turn everyday walks into a game: reveal map tiles, visit public landmarks, finish quests, earn XP and compete in friendly territory rounds with their circle.
 
 | Part | Stack | Folder |
@@ -17,6 +19,7 @@ No Firebase, Supabase or other backend-as-a-service. The backend is the only aut
 - [Android guide](docs/android.md): build setup, Google Maps and Sign-In keys, signing and release, background location limits, battery test
 - [Privacy and safety](docs/privacy.md): data categories, access rules, retention, deletion, UU PDP and Google Play notes
 - [Design notes](docs/design.md): visual direction and the reason behind each design decision
+- [CI and releases](docs/release.md): what runs on every push, how to cut a release, which secrets to set
 
 ## Quick start
 

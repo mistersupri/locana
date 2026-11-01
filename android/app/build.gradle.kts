@@ -18,6 +18,12 @@ fun setting(name: String, default: String = ""): String = localProps.getProperty
 val debugApi = setting("LOCANA_API_URL_DEBUG", "http://10.0.2.2:3000/")
 val stagingApi = setting("LOCANA_API_URL_STAGING", "https://staging-api.locana.invalid/")
 val releaseApi = setting("LOCANA_API_URL_RELEASE", "https://api.locana.invalid/")
+// CI passes the version from the git tag and the run number; local builds keep the defaults.
+val appVersionName = (findProperty("locanaVersionName") as String?) ?: "0.1.0"
+val appVersionCode = (findProperty("locanaVersionCode") as String?)?.toInt() ?: 1
+// Explicit opt-in for a release build signed with the debug key (installable for testing, never for Play).
+val debugSignedRelease = (findProperty("locanaDebugSignedRelease") as String?) == "true"
+
 listOf("staging" to stagingApi, "release" to releaseApi).forEach { (name, url) ->
     require(url.startsWith("https://")) { "$name API URL must use https: $url" }
 }
@@ -30,8 +36,8 @@ android {
         applicationId = "app.locana"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["MAPS_API_KEY"] = setting("MAPS_API_KEY")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"${setting("GOOGLE_SERVER_CLIENT_ID")}\"")
@@ -39,8 +45,17 @@ android {
     }
 
     signingConfigs {
+        // Release key: environment variables (CI secrets) first, then android/keystore.properties.
+        val envStore = System.getenv("LOCANA_KEYSTORE_FILE")
         val ks = rootProject.file("keystore.properties")
-        if (ks.exists()) {
+        if (!envStore.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(envStore)
+                storePassword = System.getenv("LOCANA_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("LOCANA_KEY_ALIAS")
+                keyPassword = System.getenv("LOCANA_KEY_PASSWORD")
+            }
+        } else if (ks.exists()) {
             val p = Properties().apply { ks.inputStream().use { load(it) } }
             create("release") {
                 storeFile = rootProject.file(p.getProperty("storeFile"))
@@ -71,7 +86,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "API_BASE_URL", "\"$releaseApi\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = if (debugSignedRelease) signingConfigs.getByName("debug") else signingConfigs.findByName("release")
         }
     }
 

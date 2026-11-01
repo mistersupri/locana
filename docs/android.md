@@ -95,6 +95,8 @@ Screenshots draw the activity window, so bottom sheets and dialogs (separate win
 
 ## Signing and release
 
+Releases are built by GitHub Actions when you push a `v*` tag; see [release.md](release.md) for the secrets it needs. The steps below are for building a signed release on your own machine.
+
 1. Create an upload keystore once and keep it out of git:
 
 ```bash
