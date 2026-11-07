@@ -51,6 +51,16 @@ Without the four `ANDROID_*` secrets the release still runs, but the APK is sign
 
 Without `LOCANA_API_URL_RELEASE` the app points at `https://api.locana.invalid/` and cannot sign in. The workflow prints a warning.
 
+The build tidies the URL for you: spaces and newlines are trimmed, a missing trailing `/` is added, and anything that is not `https://` fails the build.
+
+### Changing a secret or variable needs a new release
+
+The API URL, the Maps key and the Google client id are written into the APK when it is built. Changing them in GitHub does not change an APK that already exists: publish a new release (a new tag, for example `v0.2.0-preview.2`) to get an app with the new values. The backend image is rebuilt from the tagged code as well, so it picks up code fixes made since the last tag.
+
+### Installing a debug-signed APK over an older one
+
+Without your release key, every build is signed with a debug key that is generated fresh on each GitHub runner, so two builds never share a signature. Android then refuses to update one over the other ("App not installed as package conflicts with an existing package"). Uninstall the older Locana first; a signed release build with your own key updates normally.
+
 ### Create the release keystore (once)
 
 Keep the keystore and its passwords somewhere safe and outside the repository. Losing it means you cannot update the app on Play unless you use Play App Signing with an upload key.

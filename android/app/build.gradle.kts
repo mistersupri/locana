@@ -15,9 +15,16 @@ val localProps = Properties().apply {
 }
 fun setting(name: String, default: String = ""): String = localProps.getProperty(name) ?: System.getenv(name) ?: default
 
-val debugApi = setting("LOCANA_API_URL_DEBUG", "http://10.0.2.2:3000/")
-val stagingApi = setting("LOCANA_API_URL_STAGING", "https://staging-api.locana.invalid/")
-val releaseApi = setting("LOCANA_API_URL_RELEASE", "https://api.locana.invalid/")
+// Retrofit rejects a base URL without a trailing slash (the app would crash at launch), and values
+// pasted into CI variables often carry spaces or a newline, so tidy them here once.
+fun apiUrl(name: String, default: String): String {
+    val raw = setting(name, default).trim().ifEmpty { default }
+    return if (raw.endsWith("/")) raw else "$raw/"
+}
+
+val debugApi = apiUrl("LOCANA_API_URL_DEBUG", "http://10.0.2.2:3000/")
+val stagingApi = apiUrl("LOCANA_API_URL_STAGING", "https://staging-api.locana.invalid/")
+val releaseApi = apiUrl("LOCANA_API_URL_RELEASE", "https://api.locana.invalid/")
 // CI passes the version from the git tag and the run number; local builds keep the defaults.
 val appVersionName = (findProperty("locanaVersionName") as String?) ?: "0.1.0"
 val appVersionCode = (findProperty("locanaVersionCode") as String?)?.toInt() ?: 1
