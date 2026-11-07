@@ -46,7 +46,7 @@ Register through the app or `POST /v1/auth/register`, copy your user id from `GE
 | `ACCESS_TOKEN_TTL_SECONDS` | no | `900` | |
 | `REFRESH_TOKEN_TTL_DAYS` | no | `30` | |
 | `GOOGLE_CLIENT_ID` | for Google Sign-In | empty | OAuth client id of type "Web application"; the Android app sends it as `serverClientId` |
-| `SMTP_URL` | in production | empty | e.g. `smtps://user:pass@smtp.example.com:465`; in development reset codes are logged |
+| `SMTP_URL` | in production | empty | A full URL, not a host name: `smtps://USER:PASSWORD@HOST:465`. Gmail: `smtps://yourname%40gmail.com:APP_PASSWORD@smtp.gmail.com:465` (write `@` in the user name as `%40`; Gmail needs an app password, which requires 2-step verification on the account). The server refuses to start with a bare host name. In development, leaving it empty logs reset codes instead |
 | `MAIL_FROM` | no | `Locana <no-reply@example.com>` | |
 | `LOCATION_HISTORY_RETENTION_DAYS` | no | `30` | Server-wide maximum; users can choose less |
 | `GAME_TZ_OFFSET_MINUTES` | no | `420` | When game days and weeks roll over (420 = WIB) |
@@ -133,6 +133,7 @@ Backups contain location data. Encrypt them at rest, limit who can read them, an
 | --- | --- |
 | Boot fails with `Missing required environment variable` | `.env` not loaded or variable empty; in production `.env` is ignored on purpose |
 | `JWT_ACCESS_SECRET must be at least 32 characters in production` | Generate one with `openssl rand -base64 48` |
+| `SMTP_URL must be a full URL starting with smtps://` (older builds: `Cannot create property 'mailer' on string`) | `SMTP_URL` holds only a host name such as `smtp.gmail.com`. Use `smtps://USER:PASSWORD@smtp.gmail.com:465` (see the variable table), or leave it empty in development |
 | `/health/ready` returns 503 with `redis: false` | `REDIS_URL` set but Redis unreachable; unset it for a single instance |
 | The app's WebSocket connects then closes with 4401 | Access token expired or session revoked; the client should refresh and send `auth` |
 | Locations upload but nobody sees them | The sharer has no ACTIVE session for that circle, paused globally, hid from that viewer, or one blocked the other. `GET /v1/sharing` as the sharer shows which |
