@@ -64,8 +64,8 @@ import app.locana.domain.Presence
 import app.locana.domain.TileBounds
 import app.locana.ui.components.Avatar
 import app.locana.ui.components.HeroPrimaryButton
+import app.locana.ui.components.HeroSecondaryButton
 import app.locana.ui.theme.LocalHero
-import app.locana.ui.components.EmptyState
 import app.locana.ui.components.PrimaryButton
 import app.locana.ui.components.SecondaryButton
 import app.locana.ui.components.StatusChip
@@ -134,19 +134,10 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         vm.onViewport(TileBounds(b.northeast.latitude, b.southwest.latitude, b.northeast.longitude, b.southwest.longitude), camera.position.zoom, camera.position.target.latitude, camera.position.target.longitude)
     }
 
-    if (ui.noCircles) {
-        Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                EmptyState(
-                    "Start with a circle",
-                    "A circle is a small private group: your family, a partner or friends. Make one and invite them, or join with a code.",
-                    actionLabel = "Create a circle",
-                    onAction = { nav.navigate(Routes.CIRCLE_CREATE) },
-                )
-                TextButton(onClick = { nav.navigate(Routes.circleJoin()) }) { Text("I have an invitation code") }
-            }
-        }
-        return
+    // With no circle there is nothing to frame, so start on the person's own area instead of a default city.
+    LaunchedEffect(ui.noCircles, perms.anyLocation) {
+        if (!ui.noCircles || !perms.anyLocation) return@LaunchedEffect
+        vm.myLastLocation()?.let { camera.move(CameraUpdateFactory.newLatLngZoom(LatLng(it.first, it.second), 15f)) }
     }
 
     val primary = MaterialTheme.colorScheme.primary
@@ -223,13 +214,15 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             MissingMapKey(Modifier.fillMaxSize())
         }
 
-        TopBar(
-            ui = ui,
-            onSelect = vm::select,
-            onRefresh = vm::refresh,
-            onSharing = { nav.navigate(Routes.SHARING) },
-            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp),
-        )
+        if (!ui.noCircles) {
+            TopBar(
+                ui = ui,
+                onSelect = vm::select,
+                onRefresh = vm::refresh,
+                onSharing = { nav.navigate(Routes.SHARING) },
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp),
+            )
+        }
 
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             Row(Modifier.align(Alignment.End).padding(end = 12.dp), verticalAlignment = Alignment.Bottom) {
@@ -244,12 +237,16 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                 }
             }
             Spacer(Modifier.height(8.dp))
-            if (ui.circle != null && !ui.sharingHere) {
-                ShareCard(ui.circle!!.name, onShare = {
-                    if (perms.anyLocation) shareOpen = true else nav.navigate(Routes.PERMISSIONS)
-                })
+            if (ui.noCircles) {
+                NoCircleCard(onCreate = { nav.navigate(Routes.CIRCLE_CREATE) }, onJoin = { nav.navigate(Routes.circleJoin()) })
+            } else {
+                if (ui.circle != null && !ui.sharingHere) {
+                    ShareCard(ui.circle!!.name, onShare = {
+                        if (perms.anyLocation) shareOpen = true else nav.navigate(Routes.PERMISSIONS)
+                    })
+                }
+                MemberStrip(ui.members, onTap = { selected = it })
             }
-            MemberStrip(ui.members, onTap = { selected = it })
         }
     }
 
@@ -308,6 +305,27 @@ private fun TopBar(ui: MapUi, onSelect: (String) -> Unit, onRefresh: () -> Unit,
                 content = if (ui.sharingHere && sharing?.globallyPaused == false) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             )
             IconButton(onClick = onRefresh, enabled = !ui.refreshing) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh locations") }
+        }
+    }
+}
+
+/** The map stays visible without a circle; this is the one next step, kept at the bottom like the share prompt. */
+@Composable
+private fun NoCircleCard(onCreate: () -> Unit, onJoin: () -> Unit) {
+    val hero = LocalHero.current
+    Surface(color = hero.background, contentColor = hero.text, shape = MaterialTheme.shapes.large, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Start with a circle", style = MaterialTheme.typography.titleMedium, color = hero.text)
+            Text(
+                "A circle is a small private group: your family, a partner or friends. Make one and invite them, or join with a code.",
+                style = MaterialTheme.typography.bodySmall,
+                color = hero.muted,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HeroPrimaryButton("Create a circle", onCreate)
+                HeroSecondaryButton("I have a code", onJoin)
+            }
         }
     }
 }
@@ -456,7 +474,7 @@ private fun ShareSheet(circleName: String, onPick: (Int?) -> Unit) {
 private fun MissingMapKey(modifier: Modifier) {
     Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerLow), contentAlignment = Alignment.Center) {
         Text(
-            "Map unavailable: this build has no Google Maps API key.\nAdd MAPS_API_KEY to local.properties (see docs/android.md). Members are listed below.",
+            "Map unavailable: this build has no Google Maps API key.\nBuild with MAPS_API_KEY set: in local.properties on your computer, or as the MAPS_API_KEY secret for GitHub releases (see docs/release.md).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(32.dp),

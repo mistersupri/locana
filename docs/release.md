@@ -53,6 +53,21 @@ Without `LOCANA_API_URL_RELEASE` the app points at `https://api.locana.invalid/`
 
 The build tidies the URL for you: spaces and newlines are trimmed, a missing trailing `/` is added, and anything that is not `https://` fails the build.
 
+### The Maps key and debug-signed releases
+
+`MAPS_API_KEY` is written into the APK, so anyone who downloads the APK can read it. That is how Android Maps keys work; the protection is the restrictions you set on the key in Google Cloud Console (APIs & Services, Credentials, your key):
+
+- **API restrictions**: allow only "Maps SDK for Android". Enable that API for the project, and make sure billing is enabled on it, or the map stays blank.
+- **Application restrictions**: "Android apps" with the package name **`app.locana`** and the SHA-1 of the key that signed the APK.
+
+The SHA-1 is the catch for releases without your own keystore: every build on GitHub is signed with a debug key generated on that build's runner, so the SHA-1 changes on every release (`preview.1` and `preview.2` differ). A key restricted to one SHA-1 then shows a blank map on the next build. Until you add your release keystore secrets (the SHA-1 then stays the same for every release), either set the application restriction to "None" and keep the API restriction, or add the SHA-1 of the specific APK you are testing. To read it:
+
+```bash
+apksigner verify --print-certs locana-0.2.0-preview.2-debug-signed.apk
+```
+
+Changing restrictions in Google Cloud applies to APKs that are already installed (it can take a few minutes); only changing the key itself needs a new release.
+
 ### Changing a secret or variable needs a new release
 
 The API URL, the Maps key and the Google client id are written into the APK when it is built. Changing them in GitHub does not change an APK that already exists: publish a new release (a new tag, for example `v0.2.0-preview.2`) to get an app with the new values. The backend image is rebuilt from the tagged code as well, so it picks up code fixes made since the last tag.
