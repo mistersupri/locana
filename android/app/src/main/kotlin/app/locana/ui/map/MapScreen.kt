@@ -1,6 +1,9 @@
 package app.locana.ui.map
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,32 +14,44 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PauseCircleOutline
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.PlayCircleOutline
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ShareLocation
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,8 +62,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,17 +79,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import app.locana.BuildConfig
 import app.locana.R
+import app.locana.data.api.PlaceDto
 import app.locana.data.prefs.MapLayers
 import app.locana.domain.Freshness
 import app.locana.domain.Presence
 import app.locana.domain.TileBounds
 import app.locana.ui.components.Avatar
-import app.locana.ui.components.HeroPrimaryButton
-import app.locana.ui.components.HeroSecondaryButton
-import app.locana.ui.theme.LocalHero
+import app.locana.ui.components.IconTile
 import app.locana.ui.components.PrimaryButton
 import app.locana.ui.components.SecondaryButton
-import app.locana.ui.components.StatusChip
 import app.locana.ui.components.presenceLabel
 import app.locana.ui.nav.Routes
 import app.locana.ui.theme.LocalDarkTheme
@@ -102,21 +121,28 @@ private class MemberItem(val pin: MemberPin) : ClusterItem {
 }
 
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+private val SheetPeek = 252.dp
+
+private enum class SheetTab { People, Places }
 
 @OptIn(MapsComposeExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val unread by vm.unread.collectAsStateWithLifecycle()
     // Picks up permissions granted or revoked in system settings while we were away.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
     val perms by vm.tracking.permissions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val dark = LocalDarkTheme.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(-6.2, 106.82), 11f) }
     var selected by remember { mutableStateOf<String?>(null) }
     var layersOpen by remember { mutableStateOf(false) }
     var shareOpen by remember { mutableStateOf(false) }
+    var addMenu by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(SheetTab.People) }
     var centeredOn by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Frame the circle once per circle, using only positions we are allowed to show.
@@ -133,7 +159,6 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         val b = camera.projection?.visibleRegion?.latLngBounds ?: return@LaunchedEffect
         vm.onViewport(TileBounds(b.northeast.latitude, b.southwest.latitude, b.northeast.longitude, b.southwest.longitude), camera.position.zoom, camera.position.target.latitude, camera.position.target.longitude)
     }
-
     // With no circle there is nothing to frame, so start on the person's own area instead of a default city.
     LaunchedEffect(ui.noCircles, perms.anyLocation) {
         if (!ui.noCircles || !perms.anyLocation) return@LaunchedEffect
@@ -143,109 +168,155 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val primary = MaterialTheme.colorScheme.primary
     val outline = MaterialTheme.colorScheme.outline
     val placeColor = MaterialTheme.colorScheme.secondary
-    Box(Modifier.fillMaxSize()) {
-        if (BuildConfig.HAS_MAPS_KEY) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = camera,
-                properties = MapProperties(
-                    isMyLocationEnabled = perms.anyLocation,
-                    mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
-                ),
-                uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
-                contentPadding = PaddingValues(top = 88.dp, bottom = 120.dp),
-            ) {
-                if (ui.layers.tiles) ui.tiles.forEach { t ->
-                    Polygon(
-                        points = listOf(LatLng(t.north, t.west), LatLng(t.north, t.east), LatLng(t.south, t.east), LatLng(t.south, t.west)),
-                        fillColor = primary.copy(alpha = 0.16f),
-                        strokeColor = primary.copy(alpha = 0.35f),
-                        strokeWidth = 1f,
-                    )
-                }
-                if (ui.layers.territories) ui.territories.forEach { t ->
-                    Circle(
-                        center = LatLng(t.latitude, t.longitude),
-                        radius = t.radiusM.toDouble(),
-                        fillColor = (if (t.ownedByMyCircle) primary else outline).copy(alpha = 0.10f),
-                        strokeColor = if (t.ownedByMyCircle) primary else outline,
-                        strokeWidth = 3f,
-                        clickable = true,
-                        onClick = { nav.navigate(Routes.territory(t.id)) },
-                    )
-                }
-                if (ui.layers.places) ui.places.forEach { p ->
-                    Circle(
-                        center = LatLng(p.latitude, p.longitude),
-                        radius = p.radiusM.toDouble(),
-                        fillColor = placeColor.copy(alpha = 0.08f),
-                        strokeColor = placeColor.copy(alpha = 0.6f),
-                        strokeWidth = 2f,
-                    )
-                }
-                if (ui.layers.landmarks) ui.landmarks.forEach { l ->
-                    Marker(
-                        state = remember(l.id) { MarkerState(LatLng(l.latitude, l.longitude)) },
-                        title = l.name,
-                        snippet = if (l.visited) "Visited" else "+${l.rewardXp} XP on your first visit",
-                        icon = BitmapDescriptorFactory.defaultMarker(if (l.visited) BitmapDescriptorFactory.HUE_AZURE else 172f),
-                        alpha = if (l.visited) 0.7f else 1f,
-                    )
-                }
-                if (ui.layers.members) {
-                    val items = remember(ui.members) { ui.members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.map(::MemberItem) }
-                    Clustering(
-                        items = items,
-                        onClusterClick = { c ->
-                            scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(c.position, camera.position.zoom + 2f), 300) }
-                            true
-                        },
-                        onClusterItemClick = { selected = it.pin.userId; true },
-                        clusterContent = { c ->
-                            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(44.dp)) {
-                                Box(contentAlignment = Alignment.Center) { Text("${c.size}", style = MaterialTheme.typography.titleMedium) }
-                            }
-                        },
-                        clusterItemContent = { item -> Avatar(item.pin.name, item.pin.avatarKey, size = 44.dp, presence = item.pin.presence, framed = item.pin.framed) },
-                    )
-                }
-            }
-        } else {
-            MissingMapKey(Modifier.fillMaxSize())
-        }
+    val requestShare = { if (perms.anyLocation) shareOpen = true else nav.navigate(Routes.PERMISSIONS) }
 
-        if (!ui.noCircles) {
-            TopBar(
-                ui = ui,
-                onSelect = vm::select,
-                onRefresh = vm::refresh,
-                onSharing = { nav.navigate(Routes.SHARING) },
-                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(12.dp),
-            )
-        }
-
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-            Row(Modifier.align(Alignment.End).padding(end = 12.dp), verticalAlignment = Alignment.Bottom) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SmallFloatingActionButton(onClick = { layersOpen = true }) { Icon(Icons.Outlined.Layers, contentDescription = "Map layers") }
-                    SmallFloatingActionButton(onClick = {
-                        scope.launch {
-                            val me = vm.myLastLocation()
-                            if (me != null) camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(me.first, me.second), 16f), 400)
-                        }
-                    }) { Icon(Icons.Filled.MyLocation, contentDescription = "Center on me") }
-                }
+    BottomSheetScaffold(
+        sheetPeekHeight = SheetPeek,
+        sheetContainerColor = floatingColor(),
+        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetShadowElevation = 12.dp,
+        sheetTonalElevation = 0.dp,
+        sheetDragHandle = { BottomSheetDefaults.DragHandle() },
+        sheetContent = {
+            // Expands to at most two thirds of the screen so the map stays in view.
+            Box(Modifier.heightIn(max = (screenHeight * 0.66f).dp)) {
+                CircleSheet(
+                    ui = ui,
+                    tab = tab,
+                    onTab = { tab = it },
+                    onMember = { selected = it },
+                    onPlace = { p -> nav.navigate(Routes.placeEdit(p.circleId, p.id)) },
+                    onAddPlace = { ui.circleId?.let { nav.navigate(Routes.placeEdit(it)) } },
+                    onCreateCircle = { nav.navigate(Routes.CIRCLE_CREATE) },
+                    onJoin = { nav.navigate(Routes.circleJoin()) },
+                )
             }
-            Spacer(Modifier.height(8.dp))
-            if (ui.noCircles) {
-                NoCircleCard(onCreate = { nav.navigate(Routes.CIRCLE_CREATE) }, onJoin = { nav.navigate(Routes.circleJoin()) })
+        },
+    ) { pad ->
+        val above = pad.calculateBottomPadding() + 16.dp
+        Box(Modifier.fillMaxSize()) {
+            if (BuildConfig.HAS_MAPS_KEY) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = camera,
+                    properties = MapProperties(
+                        isMyLocationEnabled = perms.anyLocation,
+                        mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
+                    ),
+                    uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
+                    contentPadding = PaddingValues(top = 88.dp, bottom = pad.calculateBottomPadding()),
+                ) {
+                    if (ui.layers.tiles) ui.tiles.forEach { t ->
+                        Polygon(
+                            points = listOf(LatLng(t.north, t.west), LatLng(t.north, t.east), LatLng(t.south, t.east), LatLng(t.south, t.west)),
+                            fillColor = primary.copy(alpha = 0.16f),
+                            strokeColor = primary.copy(alpha = 0.35f),
+                            strokeWidth = 1f,
+                        )
+                    }
+                    if (ui.layers.territories) ui.territories.forEach { t ->
+                        Circle(
+                            center = LatLng(t.latitude, t.longitude),
+                            radius = t.radiusM.toDouble(),
+                            fillColor = (if (t.ownedByMyCircle) primary else outline).copy(alpha = 0.10f),
+                            strokeColor = if (t.ownedByMyCircle) primary else outline,
+                            strokeWidth = 3f,
+                            clickable = true,
+                            onClick = { nav.navigate(Routes.territory(t.id)) },
+                        )
+                    }
+                    if (ui.layers.places) ui.places.forEach { p ->
+                        Circle(
+                            center = LatLng(p.latitude, p.longitude),
+                            radius = p.radiusM.toDouble(),
+                            fillColor = placeColor.copy(alpha = 0.08f),
+                            strokeColor = placeColor.copy(alpha = 0.6f),
+                            strokeWidth = 2f,
+                        )
+                    }
+                    if (ui.layers.landmarks) ui.landmarks.forEach { l ->
+                        Marker(
+                            state = remember(l.id) { MarkerState(LatLng(l.latitude, l.longitude)) },
+                            title = l.name,
+                            snippet = if (l.visited) "Visited" else "+${l.rewardXp} XP on your first visit",
+                            icon = BitmapDescriptorFactory.defaultMarker(if (l.visited) BitmapDescriptorFactory.HUE_AZURE else 172f),
+                            alpha = if (l.visited) 0.7f else 1f,
+                        )
+                    }
+                    if (ui.layers.members) {
+                        val items = remember(ui.members) { ui.members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.map(::MemberItem) }
+                        Clustering(
+                            items = items,
+                            onClusterClick = { c ->
+                                scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(c.position, camera.position.zoom + 2f), 300) }
+                                true
+                            },
+                            onClusterItemClick = { selected = it.pin.userId; true },
+                            clusterContent = { c -> ClusterBubble(c.size) },
+                            clusterItemContent = { item -> MemberPinMarker(item.pin.name, item.pin.avatarKey, item.pin.presence, item.pin.framed, item.pin.recordedAtMs) },
+                        )
+                    }
+                }
             } else {
-                if (ui.circle != null && !ui.sharingHere) {
-                    ShareCard(ui.circle!!.name, onShare = {
-                        if (perms.anyLocation) shareOpen = true else nav.navigate(Routes.PERMISSIONS)
-                    })
+                MissingMapKey(Modifier.fillMaxSize())
+            }
+
+            // Top row, as in the reference: settings, circle switcher, notifications.
+            Row(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MapControl(onClick = { nav.navigate(Routes.SHARING) }) { Icon(Icons.Outlined.Settings, contentDescription = "Location sharing settings") }
+                CirclePill(ui = ui, onSelect = vm::select, modifier = Modifier.weight(1f))
+                MapControl(onClick = { nav.navigate(Routes.NOTIFICATIONS) }) {
+                    BadgedBox(badge = { if (unread > 0) Badge { Text(if (unread > 9) "9+" else "$unread") } }) {
+                        Icon(Icons.Outlined.Notifications, contentDescription = if (unread > 0) "Notifications, $unread unread" else "Notifications")
+                    }
                 }
-                MemberStrip(ui.members, onTap = { selected = it })
+            }
+            if (!ui.noCircles) {
+                MapControl(
+                    onClick = vm::refresh,
+                    modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp + 52.dp + 12.dp, end = 16.dp),
+                ) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh locations") }
+            }
+
+            // Right stack: my location, layers, add. Sits just above the sheet.
+            Column(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = above), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                MapControl(onClick = {
+                    scope.launch {
+                        val me = vm.myLastLocation()
+                        if (me != null) camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(me.first, me.second), 16f), 400)
+                    }
+                }) { Icon(Icons.Filled.MyLocation, contentDescription = "Center on me") }
+                MapControl(onClick = { layersOpen = true }) { Icon(Icons.Outlined.Layers, contentDescription = "Map layers") }
+                Box {
+                    MapControl(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, contentDescription = "Add") }
+                    DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                        if (ui.circleId != null) {
+                            DropdownMenuItem(text = { Text("Invite someone") }, onClick = { addMenu = false; nav.navigate(Routes.circleInvite(ui.circleId!!)) })
+                            DropdownMenuItem(text = { Text("Add a place") }, onClick = { addMenu = false; nav.navigate(Routes.placeEdit(ui.circleId!!)) })
+                        }
+                        DropdownMenuItem(text = { Text("New circle") }, onClick = { addMenu = false; nav.navigate(Routes.CIRCLE_CREATE) })
+                        DropdownMenuItem(text = { Text("Join with a code") }, onClick = { addMenu = false; nav.navigate(Routes.circleJoin()) })
+                    }
+                }
+            }
+
+            // Left pills: the stateful sharing control and the invite shortcut. Only features that exist.
+            if (!ui.noCircles && ui.circleId != null) {
+                val session = ui.hereSession
+                val pausedEverywhere = ui.sharing?.globallyPaused == true
+                Row(Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = above), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when {
+                        pausedEverywhere -> MapPill("Paused", Icons.Outlined.PauseCircleOutline, { nav.navigate(Routes.SHARING) })
+                        session?.status == "ACTIVE" -> MapPill("Pause", Icons.Outlined.PauseCircleOutline, vm::pauseHere)
+                        session?.status == "PAUSED" -> MapPill("Resume", Icons.Outlined.PlayCircleOutline, vm::resumeHere)
+                        else -> MapPill("Share", Icons.Outlined.ShareLocation, requestShare)
+                    }
+                    MapPill("Invite", Icons.Outlined.PersonAdd, { nav.navigate(Routes.circleInvite(ui.circleId!!)) })
+                }
             }
         }
     }
@@ -276,105 +347,188 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     }
 }
 
+/** Circle switcher. A filled dot means you are sharing with this circle, a hollow one means you are not. */
 @Composable
-private fun TopBar(ui: MapUi, onSelect: (String) -> Unit, onRefresh: () -> Unit, onSharing: () -> Unit, modifier: Modifier) {
+private fun CirclePill(ui: MapUi, onSelect: (String) -> Unit, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 3.dp, modifier = modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                TextButton(onClick = { open = true }) {
-                    Text(ui.circle?.name ?: "Choose a circle", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = "Switch circle")
-                }
-                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                    ui.circles.forEach { (id, name) -> DropdownMenuItem(text = { Text(name) }, onClick = { open = false; onSelect(id) }) }
-                }
+    val sharing = ui.sharingHere
+    val name = ui.circle?.name ?: if (ui.noCircles) "No circle yet" else "Choose a circle"
+    val scheme = MaterialTheme.colorScheme
+    Box(modifier) {
+        Surface(
+            onClick = { open = true },
+            shape = ControlShape,
+            color = floatingColor(),
+            contentColor = scheme.onSurface,
+            shadowElevation = 6.dp,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { contentDescription = "Circle $name, " + if (sharing) "sharing" else "not sharing" },
+        ) {
+            Row(Modifier.padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .background(if (sharing) scheme.primary else Color.Transparent, CircleShape)
+                        .then(if (sharing) Modifier else Modifier.border(2.dp, scheme.outline, CircleShape)),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
             }
-            val sharing = ui.sharing
-            val label = when {
-                sharing == null -> "Checking"
-                sharing.globallyPaused -> "Paused"
-                ui.sharingHere -> sharing.sessions.firstOrNull { it.circleId == ui.circleId }?.expiresAt
-                    ?.let { "Sharing until " + timeFmt.format(Instant.parse(it).atZone(ZoneId.systemDefault())) } ?: "Sharing"
-                else -> "Not sharing"
-            }
-            StatusChip(
-                label,
-                modifier = Modifier.clickable(role = Role.Button, onClick = onSharing),
-                container = if (ui.sharingHere && sharing?.globallyPaused == false) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                content = if (ui.sharingHere && sharing?.globallyPaused == false) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            )
-            IconButton(onClick = onRefresh, enabled = !ui.refreshing) { Icon(Icons.Filled.Refresh, contentDescription = "Refresh locations") }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            ui.circles.forEach { (id, n) -> DropdownMenuItem(text = { Text(n) }, onClick = { open = false; onSelect(id) }) }
         }
     }
 }
 
-/** The map stays visible without a circle; this is the one next step, kept at the bottom like the share prompt. */
 @Composable
-private fun NoCircleCard(onCreate: () -> Unit, onJoin: () -> Unit) {
-    val hero = LocalHero.current
-    Surface(color = hero.background, contentColor = hero.text, shape = MaterialTheme.shapes.large, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Start with a circle", style = MaterialTheme.typography.titleMedium, color = hero.text)
+private fun CircleSheet(
+    ui: MapUi,
+    tab: SheetTab,
+    onTab: (SheetTab) -> Unit,
+    onMember: (String) -> Unit,
+    onPlace: (PlaceDto) -> Unit,
+    onAddPlace: () -> Unit,
+    onCreateCircle: () -> Unit,
+    onJoin: () -> Unit,
+) {
+    if (ui.noCircles) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 24.dp)) {
+            Text("Start with a circle", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(
                 "A circle is a small private group: your family, a partner or friends. Make one and invite them, or join with a code.",
-                style = MaterialTheme.typography.bodySmall,
-                color = hero.muted,
-                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeroPrimaryButton("Create a circle", onCreate)
-                HeroSecondaryButton("I have a code", onJoin)
+                PrimaryButton("Create a circle", onCreateCircle)
+                SecondaryButton("I have a code", onJoin)
             }
         }
+        return
     }
-}
-
-@Composable
-private fun ShareCard(circleName: String, onShare: () -> Unit) {
-    // The one action that matters on an unshared map, so it gets the navy panel and the teal button.
-    val hero = LocalHero.current
-    Surface(color = hero.background, contentColor = hero.text, shape = MaterialTheme.shapes.large, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("You're not sharing with $circleName", style = MaterialTheme.typography.titleSmall, color = hero.text)
-                Text("They see you as hidden until you start.", style = MaterialTheme.typography.bodySmall, color = hero.muted)
-            }
-            Spacer(Modifier.width(12.dp))
-            HeroPrimaryButton("Share", onShare)
-        }
-    }
-}
-
-@Composable
-private fun MemberStrip(members: List<MemberPin>, onTap: (String) -> Unit) {
-    if (members.isEmpty()) return
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            items(members, key = { it.userId }) { m ->
-                Column(
-                    Modifier.width(64.dp).clickable(role = Role.Button, onClickLabel = "Show ${m.name}") { onTap(m.userId) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Avatar(m.name, m.avatarKey, size = 48.dp, presence = m.presence, framed = m.framed)
-                    Text(if (m.isMe) "You" else m.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val circle = ui.circle
+    val members = remember(ui.members) { ui.members.sortedWith(compareBy({ !it.isMe }, { presenceOrder(it.presence) }, { it.name.lowercase() })) }
+    val live = ui.members.count { !it.isMe && it.presence == Presence.LIVE }
+    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                Text(circle?.name ?: "Loading your circle", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (circle != null) {
                     Text(
-                        m.recordedAtMs?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }?.let { Freshness.ageLabel(it, System.currentTimeMillis()) } ?: shortPresence(m.presence),
-                        style = MaterialTheme.typography.labelSmall,
+                        (if (members.size == 1) "1 member" else "${members.size} members") + " · " + if (live == 0) "nobody live right now" else "$live live now",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
                     )
+                    val session = ui.hereSession
+                    val paused = ui.sharing?.globallyPaused == true
+                    val status = when {
+                        paused -> "Sharing is paused everywhere"
+                        session?.status == "ACTIVE" -> session.expiresAt?.let { "Sharing until " + timeFmt.format(Instant.parse(it).atZone(ZoneId.systemDefault())) } ?: "Sharing until you stop"
+                        session?.status == "PAUSED" -> "Sharing paused"
+                        else -> "You're not sharing with ${circle.name}"
+                    }
+                    Text(
+                        status,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (ui.sharingHere) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                Row(Modifier.padding(top = 14.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SheetChip("People", Icons.Outlined.Groups, tab == SheetTab.People) { onTab(SheetTab.People) }
+                    SheetChip("Places", Icons.Outlined.Place, tab == SheetTab.Places) { onTab(SheetTab.Places) }
                 }
             }
         }
+        when (tab) {
+            SheetTab.People -> items(members, key = { it.userId }) { m -> MemberRow(m) { onMember(m.userId) } }
+            SheetTab.Places -> {
+                if (ui.places.isEmpty()) {
+                    item {
+                        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                            Text(
+                                "Save home, school or work to get an alert when someone who shares with you arrives or leaves.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                items(ui.places, key = { it.id }) { p -> PlaceRow(p) { onPlace(p) } }
+                item { Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) { SecondaryButton("Add a place", onAddPlace) } }
+            }
+        }
     }
 }
 
-private fun shortPresence(p: Presence) = when (p) {
-    Presence.HIDDEN -> "hidden"
-    Presence.UNAVAILABLE -> "no fix"
-    Presence.STALE -> "old"
-    Presence.LIVE -> "live"
+private fun presenceOrder(p: Presence) = when (p) {
+    Presence.LIVE -> 0
+    Presence.STALE -> 1
+    Presence.UNAVAILABLE -> 2
+    Presence.HIDDEN -> 3
+}
+
+/** Selected chip is the strong one (ink on light, light on dark); the state change is a 180 ms crossfade. */
+@Composable
+private fun SheetChip(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val container by animateColorAsState(if (selected) scheme.onSurface else scheme.surfaceContainerHigh, tween(180), label = "chip")
+    val content by animateColorAsState(if (selected) scheme.surface else scheme.onSurface, tween(180), label = "chipText")
+    Surface(onClick = onClick, shape = ControlShape, color = container, contentColor = content, modifier = Modifier.heightIn(min = 48.dp)) {
+        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MemberRow(m: MemberPin, onClick: () -> Unit) {
+    val now = System.currentTimeMillis()
+    val age = m.recordedAtMs?.let { Freshness.ageLabel(it, now) }
+    val line = when (m.presence) {
+        Presence.LIVE -> "Live" + (age?.let { " · $it" } ?: "")
+        Presence.STALE -> "Last seen " + (age ?: "a while ago")
+        Presence.HIDDEN -> "Not sharing with you"
+        Presence.UNAVAILABLE -> "No position yet"
+    }
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Show ${m.name}", onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(m.name, m.avatarKey, size = 52.dp, presence = m.presence, framed = m.framed)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if (m.isMe) "${m.name} (you)" else m.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }?.let {
+            Text("$it%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun PlaceRow(p: PlaceDto, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Edit ${p.name}", onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconTile(Icons.Outlined.Place, scheme.surfaceContainerHigh, scheme.onSurfaceVariant, size = 48.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                p.type.lowercase().replaceFirstChar { it.uppercase() } + " · ${p.radiusM} m" +
+                    listOfNotNull("arrivals".takeIf { p.notifyArrive }, "departures".takeIf { p.notifyLeave }).let { if (it.isEmpty()) " · no alerts" else " · alerts for " + it.joinToString(" and ") },
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable
@@ -481,4 +635,3 @@ private fun MissingMapKey(modifier: Modifier) {
         )
     }
 }
-

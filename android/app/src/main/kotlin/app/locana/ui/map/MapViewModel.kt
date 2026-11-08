@@ -8,6 +8,7 @@ import app.locana.data.api.CircleDetailDto
 import app.locana.data.api.CircleSummaryDto
 import app.locana.data.api.LandmarkDto
 import app.locana.data.api.PlaceDto
+import app.locana.data.api.SharingSessionDto
 import app.locana.data.api.SharingStateDto
 import app.locana.data.api.TerritorySummaryDto
 import app.locana.data.api.TileDto
@@ -18,6 +19,7 @@ import app.locana.data.repo.CircleRepository
 import app.locana.data.repo.GameRepository
 import app.locana.data.repo.LocationRepository
 import app.locana.data.repo.MeRepository
+import app.locana.data.repo.NotificationRepository
 import app.locana.domain.Freshness
 import app.locana.domain.Presence
 import app.locana.domain.TileBounds
@@ -67,6 +69,8 @@ data class MapUi(
     val members: List<MemberPin> = emptyList(),
     val sharing: SharingStateDto? = null,
     val sharingHere: Boolean = false,
+    /** This circle's active or paused sharing session, if any. */
+    val hereSession: SharingSessionDto? = null,
     val layers: MapLayers = MapLayers(),
     val places: List<PlaceDto> = emptyList(),
     val tiles: List<TileDto> = emptyList(),
@@ -89,10 +93,14 @@ class MapViewModel @Inject constructor(
     private val location: LocationRepository,
     private val game: GameRepository,
     private val me: MeRepository,
+    notifications: NotificationRepository,
     private val settings: SettingsStore,
     private val selection: CircleSelection,
     val tracking: TrackingController,
 ) : ViewModel() {
+    /** Unread notifications, for the badge on the bell. */
+    val unread: StateFlow<Int> = notifications.unread
+
     private val detail = MutableStateFlow<CircleDetailDto?>(null)
     private val overlay = MutableStateFlow(Overlay())
     private val status = MutableStateFlow(Triple(false, null as String?, false))
@@ -138,6 +146,7 @@ class MapViewModel @Inject constructor(
             members = members,
             sharing = sh,
             sharingHere = sh != null && !sh.globallyPaused && sh.sessions.any { it.circleId == sel && it.status == "ACTIVE" },
+            hereSession = sh?.sessions?.firstOrNull { it.circleId == sel },
             layers = layers,
             places = ov.places,
             tiles = ov.tiles,
@@ -190,6 +199,16 @@ class MapViewModel @Inject constructor(
                 .onFailure { e -> status.update { s -> s.copy(second = e.message) } }
         }
     }
+
+    private fun changeSession(block: suspend (String) -> Result<SharingStateDto>) {
+        val id = ui.value.hereSession?.id ?: return
+        viewModelScope.launch {
+            block(id).onSuccess { tracking.ensureRunning(it.collectLocation) }.onFailure { e -> status.update { s -> s.copy(second = e.message) } }
+        }
+    }
+
+    fun pauseHere() = changeSession { location.pause(it) }
+    fun resumeHere() = changeSession { location.resume(it) }
 
     fun hideFrom(viewerId: String, hidden: Boolean) {
         val id = selection.selected.value ?: return

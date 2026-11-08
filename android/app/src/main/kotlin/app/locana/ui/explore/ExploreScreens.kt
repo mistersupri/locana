@@ -249,7 +249,7 @@ private fun TodayHero(daily: List<QuestDto>, tilesRevealed: Int, exploring: Bool
                 checked = exploring,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Palette.Navy950,
+                    checkedThumbColor = hero.onAccent,
                     checkedTrackColor = hero.accent,
                     uncheckedThumbColor = hero.muted,
                     uncheckedTrackColor = hero.raised,
@@ -286,7 +286,7 @@ private fun EventQuestBanner(q: QuestDto, seasonName: String?, onClick: () -> Un
     ) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(conditionIcon(q.condition), reward.reward, Palette.Navy950)
+                IconTile(conditionIcon(q.condition), reward.reward, reward.rewardContainer)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(q.name, style = MaterialTheme.typography.titleLarge)

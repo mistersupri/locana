@@ -4,6 +4,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /*
  * Palette (why): navy is the calm, trustworthy base for a product that handles location;
@@ -106,11 +108,13 @@ val AvatarColors = mapOf(
 )
 
 /*
- * "Night map" hero panels (why): each main tab has one navy panel that holds its focal point
- * (level, today's quests, the circle, you). Navy in both themes keeps the brand voice and makes
- * the panel read as the map at night, the place the game happens. Text on it is checked for AA:
- * Mist100 on Navy950 15.7:1, Mist300 8.9:1, Teal300 8.7:1, Amber400 10:1; on Navy850 the same
- * pairs stay above 6:1.
+ * Hero panels (why): each main tab has one raised panel that holds its focal point (level, today's
+ * quests, the circle, you). In the light theme it is a white card with a soft shadow, the same
+ * language as the floating map controls; in the dark theme it is a lifted navy surface. Every pair
+ * below was checked for WCAG AA: Ink on white 17.3:1, Slate600 on white 7.3:1, Teal700 on white
+ * 5.8:1, Amber800 on white 6.2:1; dark: Mist100 on Navy850 12.6:1, Teal300 6.8:1, Amber400 7.9:1.
+ * Unlit tiles are about 1.6:1 against the panel (lit ones 3.5:1 against unlit), decorative only:
+ * the number beside every tile field carries the meaning.
  */
 @Immutable
 data class HeroColors(
@@ -119,9 +123,32 @@ data class HeroColors(
     val text: Color,
     val muted: Color,
     val accent: Color,
+    val onAccent: Color,
     val reward: Color,
     val tileHidden: Color,
+    /** Light panels need a shadow to separate from the paper background; dark ones do not. */
+    val shadow: Dp,
 )
 
-val LightHero = HeroColors(Palette.Navy950, Palette.Navy850, Palette.Mist100, Palette.Mist300, Palette.Teal300, Palette.Amber400, Color(0xFF3A5175))
-val DarkHero = HeroColors(Palette.Navy850, Palette.Navy800, Palette.Mist100, Palette.Mist300, Palette.Teal300, Palette.Amber400, Color(0xFF4A6085))
+val LightHero = HeroColors(
+    background = Color.White,
+    raised = Color(0xFFEEF3F3),
+    text = Palette.Ink,
+    muted = Palette.Slate600,
+    accent = Palette.Teal700,
+    onAccent = Color.White,
+    reward = Palette.Amber800,
+    tileHidden = Color(0xFFBFCCD2),
+    shadow = 6.dp,
+)
+val DarkHero = HeroColors(
+    background = Palette.Navy850,
+    raised = Palette.Navy800,
+    text = Palette.Mist100,
+    muted = Palette.Mist300,
+    accent = Palette.Teal300,
+    onAccent = Palette.Navy950,
+    reward = Palette.Amber400,
+    tileHidden = Color(0xFF4A6085),
+    shadow = 0.dp,
+)

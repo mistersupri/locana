@@ -51,3 +51,7 @@ Measured ratios for the main pairs: body text on navy 15.7:1, secondary text on 
 
 - Real logo and launcher icon (currently the word "Locana" and a plain letter L, marked as placeholders in the resources).
 - Visual review on real devices. Every main screen (before and after the redesign) has been rendered and reviewed in light and dark through the Robolectric click-through (see `docs/android.md`), which led to a visible selection ring on the avatar picker and hidden distances when no location fix exists. The Google Map layer itself has not been rendered (no Maps key in that run).
+
+## Map direction: light, floating controls (current)
+
+The Map follows the owner's reference screenshot: a pale full-bleed map, white rounded controls with a soft shadow floating above it, a circle-name pill at the top (filled dot = sharing, hollow = not), pin-shaped member markers whose tip is the position (dashed edge and an age bubble when the position is old), and a draggable bottom sheet with People and Places chips. Only existing features are surfaced: settings, notifications, refresh, centre on me, layers, add menu (invite, place, new circle, join), and the Share, Pause, Resume and Invite pills. Not copied: the reference's brand, colours, photos, driving reports, SOS, check-in, chat and membership upsell, because Locana has none of them. Hero panels are white cards with a soft shadow in light mode.

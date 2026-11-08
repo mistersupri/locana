@@ -73,7 +73,13 @@ fun Modifier.pressScale(source: MutableInteractionSource): Modifier = composed {
 @Composable
 fun HeroPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val hero = LocalHero.current
-    Surface(color = hero.background, contentColor = hero.text, shape = MaterialTheme.shapes.extraLarge, modifier = modifier.fillMaxWidth()) {
+    Surface(
+        color = hero.background,
+        contentColor = hero.text,
+        shape = MaterialTheme.shapes.extraLarge,
+        shadowElevation = hero.shadow,
+        modifier = modifier.fillMaxWidth(),
+    ) {
         Column(Modifier.padding(20.dp), content = content)
     }
 }
@@ -203,7 +209,7 @@ fun HeroPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Mo
     androidx.compose.material3.Button(
         onClick = onClick,
         shape = ButtonShape,
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = hero.accent, contentColor = app.locana.ui.theme.Palette.Navy950),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = hero.accent, contentColor = hero.onAccent),
         modifier = modifier.heightIn(min = 48.dp),
     ) { Text(text) }
 }

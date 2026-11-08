@@ -21,6 +21,8 @@ import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -95,7 +97,7 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (showBar) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+                NavigationBar(containerColor = app.locana.ui.map.floatingColor(), tonalElevation = 0.dp, modifier = Modifier.shadow(8.dp)) {
                     tabs.forEach { t ->
                         val selected = route == t.route
                         NavigationBarItem(
@@ -109,7 +111,8 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
                                 }
                             },
                             icon = { Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null) },
-                            label = { Text(t.label) },
+                            label = { Text(t.label, fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else null) },
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.secondaryContainer),
                         )
                     }
                 }
