@@ -1,6 +1,7 @@
 package app.locana.ui.map
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,10 +25,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Notifications
@@ -91,6 +92,7 @@ import app.locana.ui.components.SecondaryButton
 import app.locana.ui.components.presenceLabel
 import app.locana.ui.nav.Routes
 import app.locana.ui.theme.LocalDarkTheme
+import app.locana.ui.theme.Palette
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -121,7 +123,7 @@ private class MemberItem(val pin: MemberPin) : ClusterItem {
 }
 
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
-private val SheetPeek = 252.dp
+private val SheetPeek = 300.dp
 
 private enum class SheetTab { People, Places }
 
@@ -292,7 +294,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                 }) { Icon(Icons.Filled.MyLocation, contentDescription = "Center on me") }
                 MapControl(onClick = { layersOpen = true }) { Icon(Icons.Outlined.Layers, contentDescription = "Map layers") }
                 Box {
-                    MapControl(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, contentDescription = "Add") }
+                    MapControl(onClick = { addMenu = true }) { Icon(Icons.Outlined.AddCircleOutline, contentDescription = "Add", modifier = Modifier.size(28.dp)) }
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         if (ui.circleId != null) {
                             DropdownMenuItem(text = { Text("Invite someone") }, onClick = { addMenu = false; nav.navigate(Routes.circleInvite(ui.circleId!!)) })
@@ -414,13 +416,7 @@ private fun CircleSheet(
     LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                Text(circle?.name ?: "Loading your circle", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (circle != null) {
-                    Text(
-                        (if (members.size == 1) "1 member" else "${members.size} members") + " · " + if (live == 0) "nobody live right now" else "$live live now",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     val session = ui.hereSession
                     val paused = ui.sharing?.globallyPaused == true
                     val status = when {
@@ -429,13 +425,24 @@ private fun CircleSheet(
                         session?.status == "PAUSED" -> "Sharing paused"
                         else -> "You're not sharing with ${circle.name}"
                     }
-                    Text(
-                        status,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (ui.sharingHere) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
+                    // The white status card of the reference: soft shadow, large radius.
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = floatingColor(),
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 20.dp),
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp)) {
+                            Text(status, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (ui.sharingHere) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                (if (members.size == 1) "1 member" else "${members.size} members") + " · " + if (live == 0) "nobody live right now" else "$live live now",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
+                Text(circle?.name ?: "Loading your circle", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.padding(top = 14.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     SheetChip("People", Icons.Outlined.Groups, tab == SheetTab.People) { onTab(SheetTab.People) }
                     SheetChip("Places", Icons.Outlined.Place, tab == SheetTab.Places) { onTab(SheetTab.Places) }
@@ -470,17 +477,24 @@ private fun presenceOrder(p: Presence) = when (p) {
     Presence.HIDDEN -> 3
 }
 
-/** Selected chip is the strong one (ink on light, light on dark); the state change is a 180 ms crossfade. */
+/** Icon chips as in the reference: the selected one is a wide dark pill, the others small squares. */
 @Composable
 private fun SheetChip(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val container by animateColorAsState(if (selected) scheme.onSurface else scheme.surfaceContainerHigh, tween(180), label = "chip")
-    val content by animateColorAsState(if (selected) scheme.surface else scheme.onSurface, tween(180), label = "chipText")
-    Surface(onClick = onClick, shape = ControlShape, color = container, contentColor = content, modifier = Modifier.heightIn(min = 48.dp)) {
-        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
-            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        }
+    val dark = LocalDarkTheme.current
+    val on = if (dark) scheme.primary else Palette.InkChip
+    val container by animateColorAsState(if (selected) on else floatingColor(), tween(180), label = "chip")
+    val content by animateColorAsState(if (selected) (if (dark) scheme.onPrimary else Color.White) else scheme.onSurface, tween(180), label = "chipIcon")
+    val width by animateDpAsState(if (selected) 96.dp else 56.dp, tween(180), label = "chipWidth")
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = container,
+        contentColor = content,
+        shadowElevation = if (selected) 0.dp else 4.dp,
+        modifier = Modifier.size(width, 52.dp).semantics { contentDescription = label },
+    ) {
+        Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp)) }
     }
 }
 

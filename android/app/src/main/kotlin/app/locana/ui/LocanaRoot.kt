@@ -112,7 +112,13 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
                             },
                             icon = { Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null) },
                             label = { Text(t.label, fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else null) },
-                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.secondaryContainer),
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            ),
                         )
                     }
                 }
