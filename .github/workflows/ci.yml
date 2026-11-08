@@ -4,7 +4,8 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # main is covered by release.yml, which runs this workflow before publishing.
+    branches-ignore: [main]
     tags-ignore: ["v*"]
   pull_request:
   workflow_call:

@@ -2,9 +2,16 @@
 
 Two GitHub Actions workflows live in `.github/workflows/`.
 
+## How work flows
+
+1. Every new feature starts as a branch cut from `main`: `git switch main && git pull && git switch -c feature/<name>`.
+2. Push the branch. `ci.yml` runs on every push and pull request (it skips `main`, which `release.yml` covers).
+3. Bump the `VERSION` file in the branch (for example `0.2.0` to `0.3.0`, or `0.3.0-rc.1` for a pre-release).
+4. When you are ready to ship, ask for the merge into `main`. The push to `main` starts the release.
+
 ## CI (`ci.yml`)
 
-Runs on every push to any branch and on every pull request. Four jobs run in parallel:
+Four jobs run in parallel:
 
 | Job | What it does |
 | --- | --- |
@@ -15,23 +22,17 @@ Runs on every push to any branch and on every pull request. Four jobs run in par
 
 ## Release (`release.yml`)
 
-Runs when you push a tag that starts with `v`:
+Runs on every push to `main` (and by hand from the Actions tab). The version comes from the `VERSION` file; the tag is `v<VERSION>`.
 
-```bash
-git tag v0.2.0
-```
+1. **Version check**: if the tag already exists, the version was not bumped. CI still runs, nothing is published, and the run says why.
+2. **CI**: the whole CI workflow. Nothing is published if it fails.
+3. **Android**: builds the release APK and App Bundle. `versionName` is the version, `versionCode` the workflow run number, so every release is higher than the last.
+4. **Backend image**: pushes `ghcr.io/<owner>/locana-backend` tagged with the version and `sha-<commit>`, plus `latest` for non-pre-releases.
+5. **GitHub Release**: creates the tag on the `main` commit and attaches the APK, the AAB and `SHA256SUMS.txt`, with notes generated from the commits.
 
-```bash
-git push origin v0.2.0
-```
+A version with a suffix, such as `0.3.0-rc.1`, becomes a pre-release and does not move the `latest` image tag.
 
-It runs the whole CI workflow first; nothing is released if any CI job fails. Then:
-
-1. **Android**: builds the release APK and App Bundle. `versionName` comes from the tag (`0.2.0`), `versionCode` from the workflow run number, so every release is higher than the last.
-2. **Backend image**: pushes `ghcr.io/<owner>/locana-backend` tagged `0.2.0`, `0.2` and `latest`.
-3. **GitHub Release**: attaches the APK, the AAB and `SHA256SUMS.txt`, with notes generated from the commits.
-
-Tags with a suffix, such as `v0.3.0-rc.1`, become pre-releases and do not move the `latest` image tag.
+Recommended repository setting: protect `main` (Settings, Branches) so it only accepts pull requests with passing CI.
 
 ## Secrets and variables to set
 
@@ -70,7 +71,7 @@ Changing restrictions in Google Cloud applies to APKs that are already installed
 
 ### Changing a secret or variable needs a new release
 
-The API URL, the Maps key and the Google client id are written into the APK when it is built. Changing them in GitHub does not change an APK that already exists: publish a new release (a new tag, for example `v0.2.0-preview.2`) to get an app with the new values. The backend image is rebuilt from the tagged code as well, so it picks up code fixes made since the last tag.
+The API URL, the Maps key and the Google client id are written into the APK when it is built. Changing them in GitHub does not change an APK that already exists: publish a new release (bump `VERSION` and merge to `main`) to get an app with the new values. The backend image is rebuilt from the tagged code as well, so it picks up code fixes made since the last tag.
 
 ### Installing a debug-signed APK over an older one
 

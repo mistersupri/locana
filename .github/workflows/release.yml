@@ -1,25 +1,61 @@
-# Push a tag like v0.2.0 to release:
-#   1. run the full CI workflow,
-#   2. build the signed release APK and App Bundle,
-#   3. publish the backend image to GitHub Container Registry,
-#   4. create a GitHub Release with the APK, the AAB and their SHA-256 sums.
-# Tags with a suffix (v0.2.0-rc.1) become pre-releases.
+# Publishes whatever lands on main. Feature work happens on branches cut from main; merging a
+# branch into main runs this workflow:
+#   1. read the version from the VERSION file at the repository root,
+#   2. run the full CI workflow (nothing is published if it fails),
+#   3. build the release APK and App Bundle, push the backend image to GitHub Container Registry,
+#   4. create the tag v<VERSION> on the main commit and a GitHub Release with the files.
+# If the tag already exists the version was not bumped: CI still runs, publishing is skipped.
+# A version with a suffix (0.3.0-rc.1) becomes a pre-release and does not move the `latest` image tag.
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    name: Read version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      publish: ${{ steps.v.outputs.publish }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::VERSION must look like 1.2.3 or 1.2.3-rc.1, found '$version'"; exit 1
+          fi
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          case "$version" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT";; *) echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag $tag already exists, so nothing is published. Bump VERSION in the feature branch to release."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ci:
     uses: ./.github/workflows/ci.yml
 
   android:
     name: Release APK and App Bundle
-    needs: ci
+    needs: [prepare, ci]
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     outputs:
@@ -34,9 +70,9 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Version from tag
+      - name: Version from VERSION file
         id: version
-        run: echo "name=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: echo "name=${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
       - name: Release keystore
         id: keystore
         env:
@@ -91,7 +127,8 @@ jobs:
 
   backend-image:
     name: Publish backend image
-    needs: ci
+    needs: [prepare, ci]
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -115,9 +152,9 @@ jobs:
         with:
           images: ${{ steps.name.outputs.image }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.prerelease == 'false' }}
           labels: |
             org.opencontainers.image.title=Locana backend
             org.opencontainers.image.description=Auth, circles, live location, places and the Locana game engine
@@ -132,7 +169,7 @@ jobs:
 
   github-release:
     name: GitHub Release
-    needs: [android, backend-image]
+    needs: [prepare, android, backend-image]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -144,9 +181,9 @@ jobs:
       - name: Release notes
         run: |
           {
-            echo "## Locana ${GITHUB_REF_NAME}"
+            echo "## Locana ${{ needs.prepare.outputs.tag }}"
             echo
-            echo "Backend image: \`${{ needs.backend-image.outputs.image }}:${GITHUB_REF_NAME#v}\`"
+            echo "Backend image: \`${{ needs.backend-image.outputs.image }}:${{ needs.prepare.outputs.version }}\`"
             echo
             if [ "${{ needs.android.outputs.signing }}" = "debug" ]; then
               echo "**The APK is signed with a debug key.** It installs for testing but Google Play will not accept it."
@@ -159,7 +196,9 @@ jobs:
           } > notes.md
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: dist/*
           body_path: notes.md
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
           generate_release_notes: true
