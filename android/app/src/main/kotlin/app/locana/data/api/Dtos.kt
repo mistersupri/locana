@@ -38,6 +38,8 @@ data class MeDto(
 data class ProfileDto(
     val displayName: String,
     val avatarKey: String,
+    /** Changes whenever the photo does; null when the person has no photo. Used as the image cache key. */
+    val avatarPhotoVersion: Long? = null,
     val avatarFrameKey: String? = null,
     val titleKey: String? = null,
     val markerKey: String? = null,
@@ -130,6 +132,7 @@ data class MemberDto(
     val username: String,
     val displayName: String,
     val avatarKey: String? = null,
+    val avatarPhotoVersion: Long? = null,
     val avatarFrameKey: String? = null,
     val titleKey: String? = null,
     val level: Int = 1,
@@ -160,6 +163,8 @@ data class MemberDto(
 // ── location ──
 @Serializable data class LocationDto(val latitude: Double, val longitude: Double, val accuracyM: Double, val speedMps: Double? = null, val bearingDeg: Double? = null, val recordedAt: String, val batteryPct: Int? = null, val activity: String? = null, val movement: String? = null, val stationarySince: String? = null)
 @Serializable data class MemberLocationDto(val userId: String, val status: String, val location: LocationDto? = null)
+
+@Serializable data class AvatarPhotoDto(val avatarPhotoVersion: Long? = null)
 
 // ── timeline ──
 @Serializable data class TimelinePlaceDto(val id: String, val name: String, val type: String)

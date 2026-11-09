@@ -47,6 +47,18 @@ class ProfileViewModel @Inject constructor(
 
     init { viewModelScope.launch { me.loadCached(); me.refresh(); notifications.page(null) } }
 
+    private val _photoError = MutableStateFlow<String?>(null)
+    val photoError: StateFlow<String?> = _photoError.asStateFlow()
+
+    fun setPhoto(context: android.content.Context, uri: android.net.Uri) = viewModelScope.launch {
+        _photoError.value = null
+        val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { app.locana.data.PhotoPrep.prepare(context, uri) }
+        if (bytes == null) { _photoError.value = "That image could not be read. Try another one."; return@launch }
+        me.uploadPhoto(bytes).onFailure { _photoError.value = it.message ?: "The photo could not be uploaded" }
+    }
+
+    fun removePhoto() { viewModelScope.launch { _photoError.value = null; me.removePhoto().onFailure { _photoError.value = it.message } } }
+
     fun setTheme(t: ThemeMode) = viewModelScope.launch { settings.setTheme(t) }
     fun signOut() = viewModelScope.launch { auth.logout() }
 }
@@ -75,39 +87,6 @@ class ProfileEditViewModel @Inject constructor(private val me: MeRepository, cir
             _busy.value = false
         }
     }
-}
-
-@HiltViewModel
-class SharingViewModel @Inject constructor(
-    private val app: Application,
-    private val location: LocationRepository,
-    circles: CircleRepository,
-    val tracking: TrackingController,
-) : ViewModel() {
-    val state: StateFlow<SharingStateDto?> = location.sharing
-    val circles = circles.circles
-    val pending = location.pendingCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
-    init { refresh() }
-
-    fun refresh() = viewModelScope.launch { location.refreshSharing().onFailure { _error.value = it.message } }
-
-    private fun apply(block: suspend () -> Result<SharingStateDto>) = viewModelScope.launch {
-        block().onSuccess { _error.value = null; tracking.ensureRunning(it.collectLocation) }.onFailure { _error.value = it.message }
-    }
-
-    fun start(circleId: String, minutes: Int?) = apply { location.start(circleId, minutes) }
-    fun pause(id: String) = apply { location.pause(id) }
-    fun resume(id: String) = apply { location.resume(id) }
-    fun stop(id: String) = apply { location.stop(id) }
-    fun pauseAll(p: Boolean) = apply { location.pauseAll(p) }
-    fun stopAll() = apply { location.stopAll() }
-
-    /** Battery optimization makes background sharing less reliable on many devices. */
-    fun ignoringBatteryOptimizations(): Boolean =
-        app.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(app.packageName)
 }
 
 @HiltViewModel

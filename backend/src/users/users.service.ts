@@ -20,6 +20,56 @@ export class UsersService {
     private readonly tokens: TokenService,
   ) {}
 
+  /** Largest photo accepted. The app scales to about 384 px first, which is a few tens of kilobytes. */
+  static readonly MAX_PHOTO_BYTES = 400 * 1024;
+
+  private static sniff(buf: Buffer): string | null {
+    if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+    if (buf.length > 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+    if (buf.length > 12 && buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
+    return null;
+  }
+
+  async setPhoto(userId: string, body: unknown) {
+    if (!Buffer.isBuffer(body) || body.length === 0) throw badRequest('INVALID_IMAGE', 'Send the image as the request body with an image content type');
+    if (body.length > UsersService.MAX_PHOTO_BYTES) throw badRequest('IMAGE_TOO_LARGE', 'The photo must be under 400 KB; the app scales it down first');
+    // Trust the bytes, not the header: only real JPEG, PNG or WebP files are stored.
+    const contentType = UsersService.sniff(body);
+    if (!contentType) throw badRequest('INVALID_IMAGE', 'Only JPEG, PNG or WebP photos are accepted');
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.avatarPhoto.upsert({ where: { userId }, create: { userId, contentType, data: body, updatedAt: now }, update: { contentType, data: body, updatedAt: now } }),
+      this.prisma.userProfile.update({ where: { userId }, data: { avatarPhotoAt: now } }),
+    ]);
+    return { avatarPhotoVersion: now.getTime() };
+  }
+
+  async removePhoto(userId: string) {
+    await this.prisma.$transaction([
+      this.prisma.avatarPhoto.deleteMany({ where: { userId } }),
+      this.prisma.userProfile.update({ where: { userId }, data: { avatarPhotoAt: null } }),
+    ]);
+    return { avatarPhotoVersion: null };
+  }
+
+  /** The photo of yourself, or of someone you share a circle with (and have not blocked or been blocked by). */
+  async photoFor(viewerId: string, ownerId: string) {
+    if (viewerId !== ownerId) {
+      const shared = await this.prisma.circleMembership.findFirst({
+        where: { userId: ownerId, circle: { memberships: { some: { userId: viewerId } } } },
+        select: { circleId: true },
+      });
+      const blocked = await this.prisma.userBlock.findFirst({
+        where: { OR: [{ blockerId: viewerId, blockedId: ownerId }, { blockerId: ownerId, blockedId: viewerId }] },
+        select: { blockerId: true },
+      });
+      if (!shared || blocked) throw notFound('Photo');
+    }
+    const photo = await this.prisma.avatarPhoto.findUnique({ where: { userId: ownerId } });
+    if (!photo) throw notFound('Photo');
+    return photo;
+  }
+
   async me(userId: string) {
     const u = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true, privacy: true } });
     if (!u || u.deletedAt || !u.profile || !u.privacy) throw notFound('User');
@@ -35,6 +85,7 @@ export class UsersService {
       profile: {
         displayName: p.displayName,
         avatarKey: p.avatarKey,
+        avatarPhotoVersion: p.avatarPhotoAt?.getTime() ?? null,
         avatarFrameKey: p.avatarFrameKey,
         titleKey: p.titleKey,
         markerKey: p.markerKey,

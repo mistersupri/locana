@@ -16,6 +16,6 @@ class RoutesTest {
         assertEquals("circle/abc/place?placeId=", Routes.placeEdit("abc"))
         assertEquals("circle/join?code=K7QH-M3XP-2R", Routes.circleJoin("K7QH-M3XP-2R"))
         assertEquals("play/leaderboard?scope=circle", Routes.leaderboard("circle"))
-        assertEquals(5, Routes.tabs.size)
+        assertEquals(4, Routes.tabs.size)
     }
 }

@@ -30,6 +30,8 @@ data class PinSpec(
     val frameColor: Int,
     /** Old position: avatar is greyed and the dot turns grey. */
     val stale: Boolean,
+    /** Changes with the member's photo so a new photo gets a new bitmap. */
+    val photoKey: Long? = null,
     /** Small grey caption and bold value in the bubble, e.g. "Here for" and "3 hrs, 52 mins". */
     val bubbleLabel: String?,
     val bubbleValue: String?,
@@ -52,7 +54,7 @@ private fun paint(color: Int = Color.BLACK, style: Paint.Style = Paint.Style.FIL
     this.style = style
 }
 
-fun renderPin(spec: PinSpec, density: Float): RenderedPin {
+fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin {
     fun px(dp: Float) = dp * density
     val labelPaint = paint(0xFF6B6578.toInt()).apply { textSize = px(11f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL) }
     val valuePaint = paint(0xFF1B1530.toInt()).apply { textSize = px(14f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
@@ -120,6 +122,14 @@ fun renderPin(spec: PinSpec, density: Float): RenderedPin {
     val inner = RectF(cx - px(AVATAR / 2), avatarTop, cx + px(AVATAR / 2), avatarBottom)
     val bg = if (spec.stale) blend(spec.avatarColor, 0xFF8A8A94.toInt(), 0.55f) else spec.avatarColor
     c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint(bg))
+    if (photo != null) {
+        // The photo fills the rounded square; BitmapShader keeps its edges as crisp as the rest of the pin.
+        val scaled = Bitmap.createScaledBitmap(photo, inner.width().toInt(), inner.height().toInt(), true)
+        val shader = android.graphics.BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        val m = android.graphics.Matrix().apply { setTranslate(inner.left, inner.top) }
+        shader.setLocalMatrix(m)
+        c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint().apply { this.shader = shader })
+    }
     if (spec.stale) {
         val dash = paint(0xFFFFFFFF.toInt(), Paint.Style.STROKE).apply {
             strokeWidth = px(2f)
@@ -128,7 +138,7 @@ fun renderPin(spec: PinSpec, density: Float): RenderedPin {
         val d = RectF(inner).apply { inset(px(4f), px(4f)) }
         c.drawRoundRect(d, px(RADIUS - 4f), px(RADIUS - 4f), dash)
     }
-    val initials = paint(spec.avatarTextColor).apply {
+    val initials = paint(if (photo != null) 0x00000000 else spec.avatarTextColor).apply {
         textSize = px(20f)
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         textAlign = Paint.Align.CENTER

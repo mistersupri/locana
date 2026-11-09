@@ -68,56 +68,14 @@ import java.util.Locale
 
 private val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 
-private fun dayLabel(d: LocalDate): String = when (d) {
+internal fun dayLabel(d: LocalDate): String = when (d) {
     LocalDate.now() -> "Today"
     LocalDate.now().minusDays(1) -> "Yesterday"
     else -> dayFmt.format(d)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimelineScreen(nav: NavController, vm: TimelineViewModel = hiltViewModel()) {
-    val ui by vm.ui.collectAsStateWithLifecycle()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(ui.name, maxLines = 1, fontWeight = FontWeight.Bold)
-                        Text("Places and trips", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-            )
-        },
-    ) { pad ->
-        Column(Modifier.padding(pad)) {
-            DayBar(ui.day, onPrev = { vm.shift(-1) }, onNext = { vm.shift(1) }, canNext = ui.day.isBefore(LocalDate.now()))
-            when (val s = ui.items) {
-                UiState.Loading -> LoadingState()
-                is UiState.Error -> ErrorState(s.message, vm::retry)
-                is UiState.Data -> if (s.value.isEmpty()) {
-                    EmptyState(
-                        "Nothing recorded for ${dayLabel(ui.day).lowercase()}",
-                        "Places and trips are recorded while someone belongs to a circle with location on. Days older than the history limit are removed.",
-                    )
-                } else {
-                    LazyColumn(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-                        items(s.value) { item ->
-                            when (item) {
-                                is TimelineItem.Stay -> StayCard(item)
-                                is TimelineItem.Trip -> TripCard(item)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DayBar(day: LocalDate, onPrev: () -> Unit, onNext: () -> Unit, canNext: Boolean) {
+internal fun DayBar(day: LocalDate, onPrev: () -> Unit, onNext: () -> Unit, canNext: Boolean) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(shape = ControlShape, color = floatingColor(), shadowElevation = 4.dp, modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,7 +103,7 @@ private val Int.sp get() = androidx.compose.ui.unit.TextUnit(this.toFloat(), and
 private val Float.sp get() = androidx.compose.ui.unit.TextUnit(this, androidx.compose.ui.unit.TextUnitType.Sp)
 
 @Composable
-private fun StayCard(s: TimelineItem.Stay) {
+internal fun StayCard(s: TimelineItem.Stay) {
     Card(Modifier.semantics { contentDescription = "${s.title}, ${s.range}, ${s.duration}" }) {
         Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Emoji(s.emoji)
@@ -158,7 +116,7 @@ private fun StayCard(s: TimelineItem.Stay) {
 }
 
 @Composable
-private fun TripCard(t: TimelineItem.Trip) {
+internal fun TripCard(t: TimelineItem.Trip) {
     Card(Modifier.semantics { contentDescription = "${t.title}, ${t.range}, ${t.distance}, ${t.duration}" }) {
         Column {
             RouteMap(t.path)

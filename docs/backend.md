@@ -82,6 +82,10 @@ Last run in this repository: 38 unit tests and 34 end-to-end tests passed. The e
 
 Reading `GET /v1/sharing` opens an open-ended session for every circle the user belongs to (except ones they stopped on purpose). `GET /v1/circles/:id/locations` adds `movement` (`STAYING`, `MOVING` or `UNKNOWN`) and `stationarySince` to each location, worked out from the last 12 hours of history: a stay is at least 5 minutes within 100 m. `GET /v1/circles/:id/members/:userId/timeline?day=YYYY-MM-DD&tzOffsetMinutes=420` returns that local day as stays (with the matching saved place) and trips (distance, speed, walk or drive, a downsampled path). The logic is in `src/location/timeline.ts` with unit tests.
 
+## Profile photos
+
+`PUT /v1/me/avatar-photo` takes the image as the raw request body (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 400 KB; the real file type is checked from the bytes). `DELETE /v1/me/avatar-photo` removes it. `GET /v1/users/:id/avatar-photo` returns it to the owner and to people who share a circle with them. Profiles and circle members carry `avatarPhotoVersion` (null without a photo), which clients use as the image cache key.
+
 ## Production deployment
 
 The repository ships a `Dockerfile` (multi-stage, runs as `node`, `tini` as PID 1 for clean shutdown, health check on `/health/ready`) and a `docker-compose.yml` with PostgreSQL, Redis, a one-shot `migrate` service and the API. The Compose file suits a single host; on a managed platform run the same image with managed PostgreSQL and Redis.

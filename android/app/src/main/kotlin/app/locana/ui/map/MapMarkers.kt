@@ -1,6 +1,8 @@
 package app.locana.ui.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
@@ -66,10 +68,15 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
     val frame = LocalReward.current.reward.toArgb()
     val now = System.currentTimeMillis()
     val cone = remember(accent, density) { BitmapDescriptorFactory.fromBitmap(renderHeadingCone(accent, density)) }
-    members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.forEach { m ->
+    members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.forEach { m -> androidx.compose.runtime.key(m.userId) {
         val position = LatLng(m.lat!!, m.lon!!)
         val caption = captionFor(m, placeAt(m, places), now)
         val (bg, fg) = AvatarColors[m.avatarKey] ?: AvatarColors.getValue("explorer_slate")
+        val store = app.locana.ui.components.LocalPhotoStore.current
+        val photo by produceState<android.graphics.Bitmap?>(
+            initialValue = m.photoVersion?.let { store?.peek(m.userId, it) },
+            m.userId, m.photoVersion, store,
+        ) { value = m.photoVersion?.let { store?.get(m.userId, it) } }
         val spec = PinSpec(
             initials = app.locana.domain.Formatting.initials(m.name),
             avatarColor = bg.toArgb(),
@@ -78,11 +85,12 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
             framed = m.framed,
             frameColor = frame,
             stale = m.presence == Presence.STALE,
+            photoKey = if (photo != null) m.photoVersion else null,
             bubbleLabel = caption.label,
             bubbleValue = caption.value,
             emoji = caption.emoji,
         )
-        val pin = remember(spec, density) { renderPin(spec, density).let { BitmapDescriptorFactory.fromBitmap(it.bitmap) to it.anchorY } }
+        val pin = remember(spec, density) { renderPin(spec, density, photo).let { BitmapDescriptorFactory.fromBitmap(it.bitmap) to it.anchorY } }
         val state = remember(m.userId) { MarkerState(position) }
         state.position = position
         val heading = m.bearingDeg
@@ -105,5 +113,5 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
             title = m.name,
             onClick = { onClick(m.userId); true },
         )
-    }
+    } }
 }

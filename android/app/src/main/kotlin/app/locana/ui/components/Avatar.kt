@@ -1,6 +1,13 @@
 package app.locana.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -38,6 +45,9 @@ fun presenceLabel(p: Presence) = when (p) {
  * solid ring = live, dashed ring = stale, faded with no ring = hidden or unavailable.
  * An avatar frame (cosmetic) adds an amber outer ring.
  */
+/** Provided once at the root so any Avatar can show a photo without every screen passing a loader around. */
+val LocalPhotoStore = androidx.compose.runtime.staticCompositionLocalOf<app.locana.data.repo.PhotoStore?> { null }
+
 @Composable
 fun Avatar(
     name: String,
@@ -46,7 +56,15 @@ fun Avatar(
     size: Dp = 40.dp,
     presence: Presence? = null,
     framed: Boolean = false,
+    /** With both set and a photo on the server, the photo replaces the initials. */
+    userId: String? = null,
+    photoVersion: Long? = null,
 ) {
+    val store = LocalPhotoStore.current
+    val photo by produceState<ImageBitmap?>(
+        initialValue = if (userId != null && photoVersion != null) store?.peek(userId, photoVersion)?.asImageBitmap() else null,
+        userId, photoVersion, store,
+    ) { value = if (userId != null && photoVersion != null && store != null) store.get(userId, photoVersion)?.asImageBitmap() else null }
     val (bg, fg) = AvatarColors[avatarKey] ?: AvatarColors.getValue("explorer_slate")
     val ring = MaterialTheme.colorScheme.primary
     val stale = MaterialTheme.colorScheme.outline
@@ -76,13 +94,18 @@ fun Avatar(
             Modifier.size(inner).clip(CircleShape).background(bg).alpha(if (faded) 0.45f else 1f),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                Formatting.initials(name),
-                color = fg,
-                fontFamily = Display,
-                fontWeight = FontWeight.Bold,
-                fontSize = (inner.value * 0.38f).sp,
-            )
+            val p = photo
+            if (p != null) {
+                Image(p, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else {
+                Text(
+                    Formatting.initials(name),
+                    color = fg,
+                    fontFamily = Display,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (inner.value * 0.38f).sp,
+                )
+            }
         }
     }
 }

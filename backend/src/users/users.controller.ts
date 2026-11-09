@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Req, Res, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsUUID } from 'class-validator';
 import { ReportDto } from '../circles/circles.dto';
@@ -31,6 +31,25 @@ export class UsersController {
   @Patch('me')
   update(@CurrentUser() u: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(u.id, dto);
+  }
+
+  @Put('me/avatar-photo')
+  @RateLimit({ name: 'avatar-photo', limit: 20, windowSec: 600 })
+  setPhoto(@CurrentUser() u: AuthUser, @Req() req: { body: unknown }) {
+    return this.users.setPhoto(u.id, req.body);
+  }
+
+  @Delete('me/avatar-photo')
+  removePhoto(@CurrentUser() u: AuthUser) {
+    return this.users.removePhoto(u.id);
+  }
+
+  @Get('users/:id/avatar-photo')
+  async photo(@CurrentUser() u: AuthUser, @Param('id', uuid) id: string, @Res() res: { setHeader(k: string, v: string): void; end(b: Buffer): void }) {
+    const p = await this.users.photoFor(u.id, id);
+    res.setHeader('Content-Type', p.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.end(Buffer.from(p.data));
   }
 
   @Put('me/cosmetics')

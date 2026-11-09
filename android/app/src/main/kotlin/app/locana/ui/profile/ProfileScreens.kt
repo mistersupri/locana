@@ -1,5 +1,8 @@
 package app.locana.ui.profile
 
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -106,14 +109,18 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
     val unread by vm.unread.collectAsStateWithLifecycle()
     val theme by vm.theme.collectAsStateWithLifecycle()
     var confirmOut by remember { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(vertical = 16.dp)) {
+    val context = LocalContext.current
+    val photoError by vm.photoError.collectAsStateWithLifecycle()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.setPhoto(context, uri) }
+    BackScaffold("Profile", nav) { pad ->
+    LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(vertical = 16.dp)) {
         item {
             val m = me
             val hero = LocalHero.current
             if (m == null) LoadingState()
             else HeroPanel(Modifier.padding(horizontal = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(m.profile.displayName, m.profile.avatarKey, size = 72.dp, framed = m.profile.avatarFrameKey != null)
+                    Avatar(m.profile.displayName, m.profile.avatarKey, size = 72.dp, framed = m.profile.avatarFrameKey != null, userId = m.id, photoVersion = m.profile.avatarPhotoVersion)
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(m.profile.displayName, style = MaterialTheme.typography.headlineSmall, color = hero.text)
@@ -127,13 +134,17 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
                     }
                 }
                 m.profile.bio?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = hero.text, modifier = Modifier.padding(top = 12.dp)) }
-                HeroSecondaryButton("Edit profile", { nav.navigate(Routes.PROFILE_EDIT) }, Modifier.padding(top = 16.dp))
+                Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HeroSecondaryButton("Edit profile", { nav.navigate(Routes.PROFILE_EDIT) })
+                    HeroSecondaryButton(if (m.profile.avatarPhotoVersion == null) "Add photo" else "Change photo", { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+                }
+                if (m.profile.avatarPhotoVersion != null) TextButton(onClick = vm::removePhoto) { Text("Remove photo", color = hero.muted) }
+                photoError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }
             Spacer(Modifier.height(8.dp))
         }
         item {
             NavItem("Notifications", "Arrivals, quests and circle news", badge = unread) { nav.navigate(Routes.NOTIFICATIONS) }
-            NavItem("Location sharing", "Who sees you, and until when") { nav.navigate(Routes.SHARING) }
             NavItem("Privacy", "History, exploration, rankings, alerts") { nav.navigate(Routes.PRIVACY) }
             NavItem("Account and security", "Password, devices, your data, delete account") { nav.navigate(Routes.ACCOUNT) }
             NavItem("Blocked people") { nav.navigate(Routes.BLOCKED) }
@@ -147,6 +158,7 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
             }
             TextButton(onClick = { confirmOut = true }, modifier = Modifier.padding(16.dp)) { Text("Sign out") }
         }
+    }
     }
     if (confirmOut) {
         AlertDialog(
@@ -190,103 +202,6 @@ fun ProfileEditScreen(nav: NavController, vm: ProfileEditViewModel = hiltViewMod
                 FormError(error)
                 Spacer(Modifier.height(20.dp))
                 PrimaryButton("Save", { vm.save { nav.popBackStack() } }, Modifier.fillMaxWidth(), loading = busy)
-            }
-        }
-    }
-}
-
-@Composable
-fun SharingScreen(nav: NavController, vm: SharingViewModel = hiltViewModel()) {
-    val s by vm.state.collectAsStateWithLifecycle()
-    val circles by vm.circles.collectAsStateWithLifecycle()
-    val perms by vm.tracking.permissions.collectAsStateWithLifecycle()
-    val running by vm.tracking.running.collectAsStateWithLifecycle()
-    val pending by vm.pending.collectAsStateWithLifecycle()
-    val error by vm.error.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    // Picks up permissions granted or revoked in system settings while we were away.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
-    BackScaffold("Location sharing", nav) { pad ->
-        LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(16.dp)) {
-            val st = s
-            if (st == null) {
-                item { if (error != null) ErrorState(error!!, { vm.refresh() }) else LoadingState() }
-                return@LazyColumn
-            }
-            item {
-                Surface(
-                    color = if (st.collectLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(
-                            when {
-                                st.globallyPaused -> "Sharing is paused everywhere"
-                                st.sessions.any { it.status == "ACTIVE" } -> st.sessions.count { it.status == "ACTIVE" }.let { n -> if (n == 1) "Sharing with 1 circle" else "Sharing with $n circles" }
-                                else -> "You're not sharing with anyone"
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            if (running) "This phone is collecting location now. The notification stays visible while it does." else "This phone is not collecting location.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        if (pending > 0) Text("$pending position(s) waiting to upload.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
-                ToggleRow("Pause all sharing", "Everyone sees you as hidden until you turn this off", st.globallyPaused) { vm.pauseAll(it) }
-                if (st.sessions.isNotEmpty()) SecondaryButton("Stop sharing everywhere", { vm.stopAll() }, Modifier.fillMaxWidth())
-                SectionHeader("By circle")
-            }
-            items(circles?.value.orEmpty(), key = { it.id }) { c ->
-                val session = st.sessions.firstOrNull { it.circleId == c.id }
-                ListItem(
-                    headlineContent = { Text(c.name) },
-                    supportingContent = {
-                        Text(
-                            when (session?.status) {
-                                "ACTIVE" -> session.expiresAt?.let { "Sharing, ${endsIn(it)}" } ?: "Sharing until you stop"
-                                "PAUSED" -> "Paused"
-                                else -> "Not sharing"
-                            },
-                        )
-                    },
-                    trailingContent = {
-                        androidx.compose.foundation.layout.Row {
-                            when (session?.status) {
-                                "ACTIVE" -> { TextButton(onClick = { vm.pause(session.id) }) { Text("Pause") }; TextButton(onClick = { vm.stop(session.id) }) { Text("Stop") } }
-                                "PAUSED" -> { TextButton(onClick = { vm.resume(session.id) }) { Text("Resume") }; TextButton(onClick = { vm.stop(session.id) }) { Text("Stop") } }
-                                else -> TextButton(enabled = perms.anyLocation, onClick = { vm.start(c.id, 60) }) { Text("Share 1 h") }
-                            }
-                        }
-                    },
-                )
-                HorizontalDivider()
-            }
-            item {
-                SectionHeader("This phone")
-                StatusChip(if (perms.fine) "Precise location allowed" else if (perms.coarse) "Approximate location only" else "Location not allowed")
-                if (!perms.background && perms.anyLocation && Build.VERSION.SDK_INT >= 29) {
-                    Text(
-                        "Background location is off, so your circles see you only while Locana is open. After 10 minutes closed, your last position shows as old.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    TextButton(onClick = { nav.navigate(Routes.PERMISSIONS) }) { Text("Review permissions") }
-                }
-                if (perms.background && !vm.ignoringBatteryOptimizations()) {
-                    Text(
-                        "Some phones (Xiaomi, Oppo, Vivo, Samsung and others) stop background apps to save battery. If your circle often sees you as old, allow Locana to run unrestricted in battery settings.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) { Text("Open battery settings") }
-                }
-                if (!perms.anyLocation) {
-                    TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))) }) { Text("Open app settings") }
-                }
             }
         }
     }

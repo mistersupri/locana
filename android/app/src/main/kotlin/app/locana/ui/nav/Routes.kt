@@ -2,7 +2,7 @@ package app.locana.ui.nav
 
 import android.net.Uri
 
-/** Every destination in the app. Bottom bar shows only the five tabs. */
+/** Every destination in the app. Bottom bar shows only the four tabs; the profile opens from the gear on the map. */
 object Routes {
     const val ONBOARDING = "onboarding"
     const val LOGIN = "login"
@@ -24,8 +24,6 @@ object Routes {
     fun circleInvite(id: String) = "circle/$id/invite"
     const val CIRCLE_MEMBERS = "circle/{id}/members"
     fun circleMembers(id: String) = "circle/$id/members"
-    const val TIMELINE = "circle/{id}/timeline/{userId}"
-    fun timeline(id: String, userId: String) = "circle/$id/timeline/$userId"
     const val CIRCLE_SETTINGS = "circle/{id}/settings"
     fun circleSettings(id: String) = "circle/$id/settings"
     const val PLACES = "circle/{id}/places"
@@ -52,9 +50,8 @@ object Routes {
     const val NOTIFICATIONS = "notifications"
     const val PROFILE_EDIT = "profile/edit"
     const val PRIVACY = "settings/privacy"
-    const val SHARING = "sharing"
     const val ACCOUNT = "settings/account"
     const val BLOCKED = "settings/blocked"
 
-    val tabs = listOf(MAP, EXPLORE, PLAY, CIRCLE, PROFILE)
+    val tabs = listOf(MAP, EXPLORE, PLAY, CIRCLE)
 }

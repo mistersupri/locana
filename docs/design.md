@@ -63,3 +63,7 @@ At the owner's request the accent is now the reference violet (`Violet700` #5B2D
 ### Update: map pins, timeline, automatic sharing
 
 Member markers are drawn directly onto bitmaps at the screen density, so edges stay sharp, and the marker's anchor is the small dot at the bottom of the pin, which sits exactly on the coordinate. A rounded-square avatar carries a badge (house, walking, car), a bubble says "Here for 3 hrs, 52 mins" or the current speed, and a soft beam shows the phone's heading while moving. Your own pin uses your phone's newest fix and battery, not the last upload. The refresh, locate and add buttons and the sharing card are gone: sharing is automatic inside a circle (see privacy.md), and new circles and codes live in the circle switcher. Each member has a "Places and trips" timeline with route maps.
+
+### Update: one map screen, no profile tab
+
+The Profile tab is gone: the gear on the map opens the profile page (photo, edit, notifications, privacy, account, theme, sign out). There is no location sharing page, because sharing is automatic. Tapping a pin or a member row focuses that person: the sheet opens with their name, battery, what they are doing (at a place since when, driving, walking) and their day of stays and trips with route maps, and the camera lifts their pin above the sheet. The back arrow returns to the circle. Photos replace initials in avatars and in pins. The light map style now shows place names and icons.

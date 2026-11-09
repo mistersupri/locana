@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -102,6 +103,13 @@ class AppFlowTest {
         // Bottom bar items are the only clickable nodes whose whole text is the tab name.
         compose.onAllNodes(hasText(name) and hasClickAction()).fetchSemanticsNodes().let { check(it.isNotEmpty()) { "no tab $name" } }
         compose.onAllNodes(hasText(name) and hasClickAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performClick()
+        compose.waitForIdle()
+    }
+
+    /** Controls without text (the gear) are found by their content description. */
+    private fun clickDescription(label: String) {
+        compose.waitUntil(15_000) { compose.onAllNodes(hasContentDescription(label) and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasContentDescription(label) and hasClickAction())[0].performClick()
         compose.waitForIdle()
     }
 
@@ -232,16 +240,12 @@ class AppFlowTest {
         waitFor("@$user", substring = true)
         back()
 
-        // Profile: sharing controls, privacy, theme, sign out, sign back in
-        tab("Profile")
-        waitFor("Location sharing")
+        // Profile (the map's gear): photo, privacy, theme, sign out, sign back in. Location sharing is automatic, so no sharing page.
+        tab("Map")
+        clickDescription("Profile and settings")
+        waitFor("Add photo")
+        check(compose.onAllNodesWithText("Location sharing").fetchSemanticsNodes().isEmpty()) { "profile still offers a sharing page" }
         shot("19-profile")
-        click("Location sharing")
-        waitFor("Sharing with 1 circle")
-        shot("20-sharing")
-        click("Stop sharing everywhere")
-        waitFor("You're not sharing with anyone")
-        back()
         click("Privacy")
         waitFor("Keep my location history")
         click("Keep my location history")
@@ -252,10 +256,12 @@ class AppFlowTest {
         // Theme is stored in DataStore and applied on the next emission; wait for the dark surface.
         compose.waitUntil(5_000) { compose.activityRule.scenario.let { sc -> var dark = false; sc.onActivity { a -> dark = isDark(a) }; dark } }
         shot("22-profile-dark")
+        back()
         tab("Explore")
         waitFor("Today")
         shot("23-explore-dark")
-        tab("Profile")
+        tab("Map")
+        clickDescription("Profile and settings")
         click("Light")
         click("Sign out")
         waitFor("Sign out?")

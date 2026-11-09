@@ -50,6 +50,7 @@ data class MemberPin(
     val userId: String,
     val name: String,
     val avatarKey: String?,
+    val photoVersion: Long? = null,
     val framed: Boolean,
     val presence: Presence,
     val lat: Double?,
@@ -66,6 +67,9 @@ data class MemberPin(
     val hiddenFromThem: Boolean,
     val blockedByMe: Boolean,
 )
+
+/** The member whose pin was tapped: their day of stays and trips shows in the sheet. */
+data class FocusUi(val userId: String, val day: java.time.LocalDate, val items: app.locana.ui.components.UiState<List<app.locana.ui.timeline.TimelineItem>>)
 
 data class MapUi(
     val circles: List<Pair<String, String>> = emptyList(),
@@ -157,6 +161,7 @@ class MapViewModel @Inject constructor(
                 userId = m.userId,
                 name = m.displayName,
                 avatarKey = m.avatarKey,
+                photoVersion = m.avatarPhotoVersion,
                 framed = m.avatarFrameKey != null,
                 presence = if (own != null) Presence.LIVE.let { Freshness.presence(it, recordedAt, now) } else Freshness.presence(serverPresence, r?.recordedAtMs, now),
                 lat = own?.latitude ?: r?.latitude, lon = own?.longitude ?: r?.longitude, accuracyM = own?.accuracy?.toDouble() ?: r?.accuracyM,
@@ -219,7 +224,43 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    fun select(id: String) = selection.select(id)
+    fun select(id: String) { _focus.value = null; selection.select(id) }
+
+    private val _focus = MutableStateFlow<FocusUi?>(null)
+    val focus: StateFlow<FocusUi?> = _focus.asStateFlow()
+
+    fun focus(userId: String) {
+        _focus.value = FocusUi(userId, java.time.LocalDate.now(), app.locana.ui.components.UiState.Loading)
+        loadTimeline()
+    }
+
+    fun clearFocus() { _focus.value = null }
+
+    fun shiftDay(days: Long) {
+        val f = _focus.value ?: return
+        val next = f.day.plusDays(days)
+        if (next.isAfter(java.time.LocalDate.now())) return
+        _focus.value = f.copy(day = next, items = app.locana.ui.components.UiState.Loading)
+        loadTimeline()
+    }
+
+    fun retryTimeline() {
+        _focus.update { f -> f?.copy(items = app.locana.ui.components.UiState.Loading) }
+        loadTimeline()
+    }
+
+    private fun loadTimeline() {
+        val f = _focus.value ?: return
+        val circle = selection.selected.value ?: return
+        viewModelScope.launch {
+            val r = location.timeline(circle, f.userId, f.day)
+            // Ignore an answer for a person or day the sheet has already moved away from.
+            _focus.update { cur ->
+                if (cur?.userId != f.userId || cur.day != f.day) cur
+                else cur.copy(items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments)) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
+            }
+        }
+    }
 
     fun setLayers(l: MapLayers) = viewModelScope.launch { settings.setLayers(l) }
 

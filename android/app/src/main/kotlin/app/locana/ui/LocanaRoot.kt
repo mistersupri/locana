@@ -54,12 +54,12 @@ private val tabs = listOf(
     Tab(Routes.EXPLORE, "Explore", Icons.Outlined.TravelExplore, Icons.Filled.TravelExplore),
     Tab(Routes.PLAY, "Play", Icons.Outlined.EmojiEvents, Icons.Filled.EmojiEvents),
     Tab(Routes.CIRCLE, "Circle", Icons.Outlined.Groups, Icons.Filled.Groups),
-    Tab(Routes.PROFILE, "Profile", Icons.Outlined.Person, Icons.Filled.Person),
 )
 
 @Composable
 fun LocanaRoot(deepLink: MutableStateFlow<DeepLink?>, vm: RootViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
+    androidx.compose.runtime.CompositionLocalProvider(app.locana.ui.components.LocalPhotoStore provides vm.photos) {
     LocanaTheme(state.theme) {
         val nav = rememberNavController()
         val snackbar = remember { SnackbarHostState() }
@@ -85,6 +85,7 @@ fun LocanaRoot(deepLink: MutableStateFlow<DeepLink?>, vm: RootViewModel = hiltVi
                 }
             }
         }
+    }
     }
 }
 

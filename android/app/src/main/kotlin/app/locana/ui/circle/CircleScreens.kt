@@ -186,7 +186,7 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         h.detail.members.forEach { m ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-                                Avatar(m.displayName, m.avatarKey, size = 48.dp, framed = m.avatarFrameKey != null)
+                                Avatar(m.displayName, m.avatarKey, size = 48.dp, framed = m.avatarFrameKey != null, userId = m.userId, photoVersion = m.avatarPhotoVersion)
                                 Text(if (m.userId == vm.myId) "You" else m.displayName, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(
                                     when (m.sharingWithMe) { true -> "sharing"; false -> "not sharing"; null -> "you" },
@@ -366,7 +366,7 @@ fun MembersScreen(nav: NavController, vm: MembersViewModel = hiltViewModel()) {
                         var menu by remember { mutableStateOf(false) }
                         val isMe = m.userId == vm.myId
                         ListItem(
-                            leadingContent = { Avatar(m.displayName, m.avatarKey, size = 40.dp) },
+                            leadingContent = { Avatar(m.displayName, m.avatarKey, size = 40.dp, userId = m.userId, photoVersion = m.avatarPhotoVersion) },
                             headlineContent = { Text(m.displayName + if (isMe) " (you)" else "") },
                             supportingContent = {
                                 Text(

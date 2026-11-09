@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
@@ -135,7 +136,10 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val dark = LocalDarkTheme.current
     val screenHeight = LocalConfiguration.current.screenHeightDp
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(-6.2, 106.82), 11f) }
-    var selected by remember { mutableStateOf<String?>(null) }
+    val focus by vm.focus.collectAsStateWithLifecycle()
+    val focusedId = focus?.userId
+    androidx.activity.compose.BackHandler(enabled = focusedId != null) { vm.clearFocus() }
+    val scaffold = androidx.compose.material3.rememberBottomSheetScaffoldState()
     var layersOpen by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableStateOf(SheetTab.People) }
     var centeredOn by rememberSaveable { mutableStateOf<String?>(null) }
@@ -160,11 +164,28 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         vm.myLastLocation()?.let { camera.move(CameraUpdateFactory.newLatLngZoom(LatLng(it.first, it.second), 15f)) }
     }
 
+    // Tapping a pin (or a row) focuses that person: the camera goes to them, above the opened sheet.
+    val screenHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { screenHeight.dp.toPx() }
+    LaunchedEffect(focusedId) {
+        if (focusedId == null) {
+            scaffold.bottomSheetState.partialExpand()
+            return@LaunchedEffect
+        }
+        scaffold.bottomSheetState.expand()
+        val m = ui.members.firstOrNull { it.userId == focusedId }
+        if (m?.lat != null && m.lon != null && m.presence != Presence.HIDDEN) {
+            camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(m.lat, m.lon), 16.5f), 450)
+            // The sheet covers the lower two thirds, so lift the pin into the visible strip above it.
+            camera.animate(CameraUpdateFactory.scrollBy(0f, screenHeightPx * 0.2f), 250)
+        }
+    }
+
     val primary = MaterialTheme.colorScheme.primary
     val outline = MaterialTheme.colorScheme.outline
     val placeColor = MaterialTheme.colorScheme.secondary
 
     BottomSheetScaffold(
+        scaffoldState = scaffold,
         // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
         sheetPeekHeight = if (ui.noCircles) SheetPeekEmpty else SheetPeek,
         sheetContainerColor = floatingColor(),
@@ -175,11 +196,22 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         sheetContent = {
             // Expands to at most two thirds of the screen so the map stays in view.
             Box(Modifier.heightIn(max = (screenHeight * 0.66f).dp)) {
-                CircleSheet(
+                val m = ui.members.firstOrNull { it.userId == focusedId }
+                if (m != null) MemberDetail(
+                    m = m,
+                    me = ui.members.firstOrNull { it.isMe },
+                    place = placeAt(m, ui.places),
+                    focus = focus,
+                    onPrevDay = { vm.shiftDay(-1) },
+                    onNextDay = { vm.shiftDay(1) },
+                    onRetry = vm::retryTimeline,
+                    onHide = { vm.hideFrom(m.userId, !m.hiddenFromThem) },
+                    onManage = { ui.circleId?.let { nav.navigate(Routes.circleMembers(it)) } },
+                ) else CircleSheet(
                     ui = ui,
                     tab = tab,
                     onTab = { tab = it },
-                    onMember = { selected = it },
+                    onMember = { vm.focus(it) },
                     onPlace = { p -> nav.navigate(Routes.placeEdit(p.circleId, p.id)) },
                     onAddPlace = { ui.circleId?.let { nav.navigate(Routes.placeEdit(it)) } },
                     onCreateCircle = { nav.navigate(Routes.CIRCLE_CREATE) },
@@ -239,28 +271,43 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                             alpha = if (l.visited) 0.7f else 1f,
                         )
                     }
-                    if (ui.layers.members) MemberMarkers(ui.members, ui.places) { selected = it }
+                    if (ui.layers.members) MemberMarkers(ui.members, ui.places) { vm.focus(it) }
                 }
             } else {
                 MissingMapKey(Modifier.fillMaxSize())
             }
 
-            // Top row, as in the reference: settings, circle switcher, notifications.
+            // Top row, as in the reference: settings, circle switcher, notifications. While a person is focused: back and their name.
             Row(
                 Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                MapControl(onClick = { nav.navigate(Routes.SHARING) }) { Icon(Icons.Outlined.Settings, contentDescription = "Location sharing settings") }
-                CirclePill(ui = ui, onSelect = vm::select, onNew = { nav.navigate(Routes.CIRCLE_CREATE) }, onJoin = { nav.navigate(Routes.circleJoin()) }, modifier = Modifier.weight(1f))
-                MapControl(onClick = { nav.navigate(Routes.NOTIFICATIONS) }) {
-                    BadgedBox(badge = { if (unread > 0) Badge { Text(if (unread > 9) "9+" else "$unread") } }) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = if (unread > 0) "Notifications, $unread unread" else "Notifications")
+                val focused = ui.members.firstOrNull { it.userId == focusedId }
+                if (focused != null) {
+                    MapControl(onClick = vm::clearFocus) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to the circle") }
+                    Surface(shape = ControlShape, color = floatingColor(), shadowElevation = 6.dp, modifier = Modifier.weight(1f).heightIn(min = 52.dp)) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.Center) {
+                            Text(focused.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                focused.recordedAtMs?.let { "Last updated " + Freshness.ageLabel(it, System.currentTimeMillis()) } ?: "No position yet",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                } else {
+                    MapControl(onClick = { nav.navigate(Routes.PROFILE) }) { Icon(Icons.Outlined.Settings, contentDescription = "Profile and settings") }
+                    CirclePill(ui = ui, onSelect = vm::select, onNew = { nav.navigate(Routes.CIRCLE_CREATE) }, onJoin = { nav.navigate(Routes.circleJoin()) }, modifier = Modifier.weight(1f))
+                    MapControl(onClick = { nav.navigate(Routes.NOTIFICATIONS) }) {
+                        BadgedBox(badge = { if (unread > 0) Badge { Text(if (unread > 9) "9+" else "$unread") } }) {
+                            Icon(Icons.Outlined.Notifications, contentDescription = if (unread > 0) "Notifications, $unread unread" else "Notifications")
+                        }
                     }
                 }
             }
             // Without location permission the circle cannot see you, and sharing is automatic once you belong to one.
-            if (!ui.noCircles && !perms.anyLocation) {
+            if (!ui.noCircles && !perms.anyLocation && focusedId == null) {
                 Surface(
                     onClick = { nav.navigate(Routes.PERMISSIONS) },
                     shape = ControlShape,
@@ -276,31 +323,17 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             }
 
             // Right: map layers, just above the sheet.
-            MapControl(onClick = { layersOpen = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = above)) {
+            if (focusedId == null) MapControl(onClick = { layersOpen = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = above)) {
                 Icon(Icons.Outlined.Layers, contentDescription = "Map layers")
             }
 
             // Invite shortcut; sharing needs no button because belonging to a circle means sharing with it.
-            if (!ui.noCircles && ui.circleId != null) {
+            if (!ui.noCircles && ui.circleId != null && focusedId == null) {
                 MapPill("Invite", Icons.Outlined.PersonAdd, { nav.navigate(Routes.circleInvite(ui.circleId!!)) }, Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = above))
             }
         }
     }
 
-    ui.members.firstOrNull { it.userId == selected }?.let { m ->
-        ModalBottomSheet(onDismissRequest = { selected = null }) {
-            MemberSheet(
-                m = m,
-                onFocus = {
-                    selected = null
-                    if (m.lat != null) scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(m.lat, m.lon!!), 16f), 400) }
-                },
-                onHide = { vm.hideFrom(m.userId, !m.hiddenFromThem) },
-                onTimeline = { selected = null; ui.circleId?.let { nav.navigate(Routes.timeline(it, m.userId)) } },
-                onManage = { selected = null; ui.circleId?.let { nav.navigate(Routes.circleMembers(it)) } },
-            )
-        }
-    }
     if (layersOpen) {
         ModalBottomSheet(onDismissRequest = { layersOpen = false }) { LayersSheet(ui.layers, vm::setLayers) }
     }
@@ -458,7 +491,7 @@ private fun MemberRow(m: MemberPin, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Show ${m.name}", onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(m.name, m.avatarKey, size = 52.dp, presence = m.presence, framed = m.framed)
+        Avatar(m.name, m.avatarKey, size = 52.dp, presence = m.presence, framed = m.framed, userId = m.userId, photoVersion = m.photoVersion)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(if (m.isMe) "${m.name} (you)" else m.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -488,63 +521,6 @@ private fun PlaceRow(p: PlaceDto, onClick: () -> Unit) {
                 color = scheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-@Composable
-private fun MemberSheet(m: MemberPin, onFocus: () -> Unit, onHide: () -> Unit, onTimeline: () -> Unit, onManage: () -> Unit) {
-    Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(m.name, m.avatarKey, size = 56.dp, presence = m.presence, framed = m.framed)
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(if (m.isMe) "${m.name} (you)" else m.name, style = MaterialTheme.typography.titleLarge)
-                Text(presenceLabel(m.presence).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        if (m.recordedAtMs != null && m.presence != Presence.HIDDEN) {
-            Fact("Updated", Freshness.ageLabel(m.recordedAtMs, System.currentTimeMillis()))
-            m.accuracyM?.let { Fact("Accuracy", "within ${it.toInt()} m") }
-            m.batteryPct?.let { Fact("Battery", "$it%") }
-            if (m.presence == Presence.STALE) {
-                Text(
-                    "This is the last position we received. It is not live; their phone may be offline or restricting background updates.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-        } else if (!m.isMe) {
-            Text(
-                if (m.presence == Presence.HIDDEN) "${m.name} is not sharing their location with you right now." else "No position received yet.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        if (m.lat != null && m.presence != Presence.HIDDEN) {
-            PrimaryButton("Show on map", onFocus, Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            SecondaryButton("Places and trips", onTimeline, Modifier.fillMaxWidth())
-        }
-        if (!m.isMe) {
-            HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            ListItem(
-                headlineContent = { Text("Hide my location from ${m.name}") },
-                supportingContent = { Text("They stay in the circle but see you as hidden.") },
-                trailingContent = { Switch(checked = m.hiddenFromThem, onCheckedChange = { onHide() }) },
-                modifier = Modifier.clickable(role = Role.Switch, onClick = onHide),
-            )
-            SecondaryButton("Block or report", onManage, Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@Composable
-private fun Fact(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
-        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

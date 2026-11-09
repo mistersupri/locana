@@ -30,6 +30,9 @@ interface LocanaApi {
     // me
     @GET("v1/me") suspend fun me(): MeDto
     @PATCH("v1/me") suspend fun updateMe(@Body body: UpdateProfileRequest): MeDto
+    @PUT("v1/me/avatar-photo") suspend fun uploadPhoto(@Body body: okhttp3.RequestBody): AvatarPhotoDto
+    @DELETE("v1/me/avatar-photo") suspend fun removePhoto(): AvatarPhotoDto
+    @GET("v1/users/{id}/avatar-photo") suspend fun photo(@Path("id") id: String): okhttp3.ResponseBody
     @PUT("v1/me/cosmetics") suspend fun cosmetics(@Body body: CosmeticsRequest): MeDto
     @PATCH("v1/me/privacy") suspend fun privacy(@Body body: PrivacyPatch): PrivacyDto
     @POST("v1/me/devices") suspend fun registerDevice(@Body body: DeviceRequest): Response<Unit>

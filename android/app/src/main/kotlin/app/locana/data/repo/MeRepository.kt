@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,6 +46,14 @@ class MeRepository @Inject constructor(
         _me.value = m
         cache.write(KEY, MeDto.serializer(), m)
     }
+
+    /** Uploads an already scaled JPEG and reloads the profile so every screen sees the new version. */
+    suspend fun uploadPhoto(jpeg: ByteArray): Result<MeDto> = apiCall {
+        api.uploadPhoto(jpeg.toRequestBody("image/jpeg".toMediaType()))
+        api.me()
+    }.onSuccess { store(it) }
+
+    suspend fun removePhoto(): Result<MeDto> = apiCall { api.removePhoto(); api.me() }.onSuccess { store(it) }
 
     suspend fun update(req: UpdateProfileRequest): Result<MeDto> = apiCall { api.updateMe(req) }.onSuccess { store(it) }
 

@@ -29,6 +29,7 @@ model User {
   deletedAt    DateTime?
 
   profile            UserProfile?
+  avatarPhoto        AvatarPhoto?
   privacy            UserPrivacySettings?
   sessions           UserSession[]
   resetTokens        PasswordResetToken[]
@@ -82,8 +83,20 @@ model UserProfile {
   onboardingDone  Boolean   @default(false)
   // Circle that receives this player's territory points. Chosen by the player, never inferred.
   teamCircleId    String?   @db.Uuid
+  // Set when the person uploaded a photo; clients use it as a cache version for the image.
+  avatarPhotoAt   DateTime?
   updatedAt       DateTime  @updatedAt
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A profile photo, already scaled down by the app (a few tens of kilobytes). Kept in the database so
+/// there is no separate file store to run or back up. Only the person and people who share a circle with them can read it.
+model AvatarPhoto {
+  userId      String   @id @db.Uuid
+  contentType String
+  data        Bytes
+  updatedAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserSession {

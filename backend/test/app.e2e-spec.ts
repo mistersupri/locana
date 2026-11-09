@@ -239,6 +239,38 @@ describe('Locana end to end', () => {
       expect(['STAYING', 'MOVING', 'UNKNOWN']).toContain(ana.location.movement);
     });
 
+    it('profile photo: owner and circle mates can read it, outsiders cannot, bad files are refused', async () => {
+      const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 7)]);
+      const put = (u: TestUser, body: Buffer, type = 'image/jpeg') =>
+        request(app.getHttpServer()).put('/v1/me/avatar-photo').set('Authorization', `Bearer ${u.access}`).set('Content-Type', type).send(body);
+      const get = (u: TestUser, id: string) => request(app.getHttpServer()).get(`/v1/users/${id}/avatar-photo`).set('Authorization', `Bearer ${u.access}`).buffer(true).parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+
+      await put(a, Buffer.from('not an image at all'), 'image/jpeg').expect(400);
+      await put(a, Buffer.alloc(500 * 1024, 1)).expect(413);
+      const ok = await put(a, jpeg).expect(200);
+      expect(ok.body.avatarPhotoVersion).toBeGreaterThan(0);
+
+      const mine = await get(a, a.id).expect(200);
+      expect(mine.headers['content-type']).toContain('image/jpeg');
+      expect(Buffer.compare(mine.body, jpeg)).toBe(0);
+      await get(b, a.id).expect(200);
+      await get(outsider, a.id).expect(404);
+      await get(a, b.id).expect(404); // B has no photo
+
+      const me = await api(app, a).get('/me').expect(200);
+      expect(me.body.profile.avatarPhotoVersion).toBe(ok.body.avatarPhotoVersion);
+      const circle = await api(app, b).get(`/circles/${circleId}`).expect(200);
+      expect(circle.body.members.find((m: { userId: string }) => m.userId === a.id).avatarPhotoVersion).toBe(ok.body.avatarPhotoVersion);
+
+      await api(app, a).delete('/me/avatar-photo').expect(200);
+      await get(b, a.id).expect(404);
+      expect((await api(app, a).get('/me').expect(200)).body.profile.avatarPhotoVersion).toBeNull();
+    });
+
     it('geofence: B gets one arrival alert when A reaches a saved place', async () => {
       const place = await api(app, b)
         .post(`/circles/${circleId}/places`, { name: 'School', type: 'SCHOOL', latitude: AWAY.lat - 0.01, longitude: AWAY.lon, radiusM: 150 })

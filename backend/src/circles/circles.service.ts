@@ -60,7 +60,7 @@ export class CirclesService {
       include: {
         memberships: {
           orderBy: { joinedAt: 'asc' },
-          include: { user: { select: { id: true, username: true, profile: { select: { displayName: true, avatarKey: true, avatarFrameKey: true, level: true, titleKey: true } } } } },
+          include: { user: { select: { id: true, username: true, profile: { select: { displayName: true, avatarKey: true, avatarPhotoAt: true, avatarFrameKey: true, level: true, titleKey: true } } } } },
         },
       },
     });
@@ -80,6 +80,7 @@ export class CirclesService {
         username: m.user.username,
         displayName: m.user.profile?.displayName ?? m.user.username,
         avatarKey: m.user.profile?.avatarKey,
+        avatarPhotoVersion: m.user.profile?.avatarPhotoAt?.getTime() ?? null,
         avatarFrameKey: m.user.profile?.avatarFrameKey,
         titleKey: m.user.profile?.titleKey,
         level: m.user.profile?.level ?? 1,
