@@ -30,6 +30,9 @@ class ActivityMonitor @Inject constructor(@ApplicationContext private val contex
     data class Reading(val kind: String, val confidence: Int, val atMs: Long)
 
     @Volatile private var latest: Reading? = null
+
+    /** Called when the phone's guess changes, so tracking can speed up the moment someone starts walking. */
+    @Volatile var onChange: (() -> Unit)? = null
     private var started = false
 
     fun permitted(): Boolean = Build.VERSION.SDK_INT < 29 ||
@@ -58,7 +61,9 @@ class ActivityMonitor @Inject constructor(@ApplicationContext private val contex
 
     fun onResult(result: ActivityRecognitionResult, nowMs: Long = System.currentTimeMillis()) {
         val best = result.mostProbableActivity
+        val before = current(nowMs)
         latest = Reading(kindOf(best.type), best.confidence, nowMs)
+        if (current(nowMs) != before) onChange?.invoke()
     }
 
     /** The activity to stamp on a fix: recent and reasonably sure, or null. */

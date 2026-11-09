@@ -202,6 +202,14 @@ export function currentMovement(latest: TimelinePoint, history: TimelinePoint[])
     if (haversineM(latest.latitude, latest.longitude, p.latitude, p.longitude) > STAY_RADIUS_M) break;
     since = p.recordedAt;
   }
+  // Setting off from a stay: the phone says walking/cycling and the newest fix is a real step from the one before,
+  // even though it is still inside the stay radius. Without this a walk is "staying" for its first 100 m.
+  const prevFix = earlier[earlier.length - 1];
+  const ownNow = modeOfActivity(latest.activity);
+  if (prevFix && ownNow && ownNow !== 'DRIVING' && latest.accuracyM <= MOVING_MAX_ACCURACY) {
+    const stepNow = haversineM(latest.latitude, latest.longitude, prevFix.latitude, prevFix.longitude);
+    if (stepNow >= 15) return { state: 'MOVING', mode: ownNow, since: null };
+  }
   if (latest.recordedAt.getTime() - since.getTime() >= STAY_MIN_MS) return { state: 'STAYING', mode: null, since };
 
   const unknown: CurrentMovement = { state: 'UNKNOWN', mode: null, since: null };

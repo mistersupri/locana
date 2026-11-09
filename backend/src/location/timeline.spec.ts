@@ -57,6 +57,16 @@ describe('buildTimeline', () => {
 });
 
 describe('currentMovement', () => {
+  it('sees a walk starting inside the stay radius when the phone says walking', () => {
+    // Stayed 10 minutes, then a 40 m step (0.00036 deg) with activity walking: moving, not staying.
+    const m = currentMovement(pt(11, 0.00036, { activity: 'walking' }), [pt(0), pt(5), pt(10)]);
+    expect(m).toMatchObject({ state: 'MOVING', mode: 'WALKING' });
+  });
+
+  it('still calls a stay a stay when the phone says walking but the fix did not move', () => {
+    expect(currentMovement(pt(11, 0.00002, { activity: 'walking' }), [pt(0), pt(5), pt(10)]).state).toBe('STAYING');
+  });
+
   it('reports how long the person has been staying', () => {
     const m = currentMovement(pt(30), [pt(0), pt(10, 0.0003), pt(20)]);
     expect(m.state).toBe('STAYING');

@@ -70,6 +70,7 @@ class TrackingService : LifecycleService() {
         super.onCreate()
         fused = LocationServices.getFusedLocationProviderClient(this)
         activity.start()
+        activity.onChange = { lifecycleScope.launch { replan() } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -251,6 +252,7 @@ class TrackingService : LifecycleService() {
 
     private fun stopSelfSafely() {
         try { fused.removeLocationUpdates(callback) } catch (_: Exception) {}
+        activity.onChange = null
         activity.stop()
         controller.markStopped()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)

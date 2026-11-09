@@ -198,7 +198,7 @@ class MapViewModel @Inject constructor(
             val local = if (own != null) tick.activity else null
             val localMode = when (local) { "vehicle" -> "DRIVING"; "cycling" -> "CYCLING"; "walking", "running" -> "WALKING"; else -> null }
             val movement = when {
-                local != null && localMode != null && serverMovement != "STAYING" -> "MOVING"
+                local != null && localMode != null && (serverMovement != "STAYING" || (own?.takeIf { it.hasSpeed() }?.speed ?: 0f) >= 0.8f) -> "MOVING"
                 local == "still" && serverMovement != "STAYING" -> "UNKNOWN"
                 else -> serverMovement
             }
