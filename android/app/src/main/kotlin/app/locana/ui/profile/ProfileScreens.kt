@@ -223,7 +223,7 @@ fun PrivacyScreen(nav: NavController, vm: PrivacyViewModel = hiltViewModel()) {
             item {
                 message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(16.dp)) }
                 SectionHeader("Location history", Modifier.padding(horizontal = 16.dp))
-                ToggleRow("Keep my location history", "A private trail only you can see. Off by default.", p.historyEnabled) { vm.patch(PrivacyPatch(historyEnabled = it)) }
+                ToggleRow("Keep my location history", "Your places and trips, shown to you and to the people in your circles who can see you. On by default.", p.historyEnabled) { vm.patch(PrivacyPatch(historyEnabled = it)) }
                 if (p.historyEnabled) {
                     Text("Keep for ${p.historyRetentionDays} days", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 16.dp))
                     var days by remember(p.historyRetentionDays) { mutableStateOf(p.historyRetentionDays.toFloat()) }

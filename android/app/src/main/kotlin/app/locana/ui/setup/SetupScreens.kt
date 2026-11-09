@@ -122,8 +122,8 @@ fun PermissionsScreen(vm: SetupViewModel, onDone: () -> Unit, finishOnboarding: 
         Spacer(Modifier.height(24.dp))
         when {
             step == 0 -> Explain(
-                title = "Location, only when you share",
-                body = "Locana uses your location to show you on the map to the circles you choose, and to count tiles and landmarks if you turn on exploration. Android will ask next; \"While using the app\" is enough to start.",
+                title = "Location for your circles",
+                body = "Locana uses your location to show you on the map to the circles you belong to, to record your places and trips, and to count tiles and landmarks for the game. Android will ask next; \"While using the app\" is enough to start.",
                 note = if (perms.anyLocation) "Already allowed." else null,
                 primary = if (perms.anyLocation) "Continue" else "Allow location",
                 onPrimary = {

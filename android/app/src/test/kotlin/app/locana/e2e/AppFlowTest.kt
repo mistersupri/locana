@@ -113,6 +113,16 @@ class AppFlowTest {
         compose.waitForIdle()
     }
 
+    /** Opens a screen from a button or row, lets it load, takes its picture and returns. */
+    private fun visit(label: String, shotName: String) {
+        click(label)
+        compose.waitForIdle()
+        Thread.sleep(700)
+        compose.waitForIdle()
+        shot(shotName)
+        back()
+    }
+
     private fun back() {
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
@@ -166,7 +176,7 @@ class AppFlowTest {
         waitFor("How should your circle see you?")
         shot("03-profile-setup")
         click("Continue")
-        waitFor("Location, only when you share")
+        waitFor("Location for your circles")
         shot("04-permission-location")
         click("Not now")
         waitFor("Notifications for what matters")
@@ -217,6 +227,8 @@ class AppFlowTest {
         check(compose.onAllNodesWithText(" away", substring = true).fetchSemanticsNodes().isEmpty()) { "distance shown without a fix" }
         shot("13-landmarks")
         back()
+        visit("Explored map", "13a-explored-map")
+        visit("History", "13b-quest-history")
 
         // Play: level, achievements, collection, leaderboard
         tab("Play")
@@ -234,6 +246,8 @@ class AppFlowTest {
         waitFor("#1")
         shot("17-leaderboard")
         back()
+        visit("Circle leaderboard", "17a-circle-leaderboard")
+        visit("Level path", "17b-level-path")
 
         // Circle: feed and members
         tab("Circle")
@@ -241,7 +255,9 @@ class AppFlowTest {
         shot("18-circle")
         click("Members")
         waitFor("@$user", substring = true)
+        shot("18a-members")
         back()
+        visit("Places", "18b-places")
 
         // Profile (the map's gear): photo, privacy, theme, sign out, sign back in. Location sharing is automatic, so no sharing page.
         tab("Map")
@@ -249,6 +265,11 @@ class AppFlowTest {
         waitFor("Add photo")
         check(compose.onAllNodesWithText("Location sharing").fetchSemanticsNodes().isEmpty()) { "profile still offers a sharing page" }
         shot("19-profile")
+        visit("Edit profile", "19a-edit-profile")
+        visit("Notifications", "19b-notifications")
+        visit("Account and security", "19c-account")
+        visit("Blocked people", "19d-blocked")
+        visit("Permissions", "19e-permissions")
         click("Privacy")
         waitFor("Keep my location history")
         click("Keep my location history")
