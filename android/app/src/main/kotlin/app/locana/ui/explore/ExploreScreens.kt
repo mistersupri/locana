@@ -1,6 +1,33 @@
 package app.locana.ui.explore
 
+import app.locana.ui.theme.cardBrush
 import androidx.compose.foundation.clickable
+import app.locana.ui.components.ListRowCard
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.outlined.TempleBuddhist
+import androidx.compose.material.icons.outlined.Park
+import androidx.compose.material.icons.outlined.Navigation
+import androidx.compose.material.icons.outlined.LocalLibrary
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.foundation.text.BasicTextField
+import app.locana.ui.theme.LocalTokens
+import app.locana.ui.components.XpBadge
+import app.locana.ui.components.TagPill
+import app.locana.ui.components.LocanaCard
+import app.locana.ui.components.Illustration
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
@@ -56,7 +83,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import app.locana.ui.components.LocanaSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -116,17 +143,12 @@ fun endsIn(iso: String): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Screen with the mockup's top bar: white square back button, Bricolage title, optional action on the right. */
 @Composable
 fun BackScaffold(title: String, nav: NavController, actions: @Composable () -> Unit = {}, content: @Composable (PaddingValues) -> Unit) {
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                actions = { actions() },
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { app.locana.ui.components.LocanaTopBar(title, onBack = { nav.popBackStack() }, action = actions) },
         content = content,
     )
 }
@@ -140,9 +162,9 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.tracking.refreshPermissions() }
     val data = (state as? UiState.Data)?.value
 
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Text("Explore", style = MaterialTheme.typography.headlineLarge)
+            Text("Explore", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 30.sp))
             Spacer(Modifier.height(12.dp))
             TodayHero(
                 daily = data?.quests.orEmpty().filter { it.type == "DAILY" },
@@ -152,10 +174,10 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
                 error = toggleError,
                 onToggle = { if (perms.anyLocation) vm.setExploration(it) else nav.navigate(Routes.PERMISSIONS) },
             )
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ShortcutChip("Explored map", Icons.Outlined.GridView) { nav.navigate(Routes.EXPLORATION_MAP) }
-                ShortcutChip("Landmarks", Icons.Outlined.Museum) { nav.navigate(Routes.LANDMARKS) }
-                ShortcutChip("History", Icons.Outlined.History) { nav.navigate(Routes.QUEST_HISTORY) }
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ShortcutChip("Explored map", Icons.Outlined.Map, Modifier.weight(1f)) { nav.navigate(Routes.EXPLORATION_MAP) }
+                ShortcutChip("Landmarks", Icons.Outlined.Museum, Modifier.weight(1f)) { nav.navigate(Routes.LANDMARKS) }
+                ShortcutChip("History", Icons.Outlined.History, Modifier.weight(1f)) { nav.navigate(Routes.QUEST_HISTORY) }
             }
         }
         when (val s = state) {
@@ -204,108 +226,94 @@ fun ExploreScreen(nav: NavController, vm: ExploreViewModel = hiltViewModel()) {
  */
 @Composable
 private fun TodayHero(daily: List<QuestDto>, tilesRevealed: Int, exploring: Boolean, hasPermission: Boolean, error: String?, onToggle: (Boolean) -> Unit) {
-    val hero = LocalHero.current
+    val t = LocalTokens.current
     val done = daily.count { it.status == "COMPLETED" || it.status == "CLAIMED" }
-    HeroPanel {
-        Row(verticalAlignment = Alignment.Bottom) {
+    HeroPanel(brush = cardBrush(Color.White, Color(0xFFECE4FF), vertical = true)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Today", style = MaterialTheme.typography.labelLarge, color = hero.muted)
+                Text("Today", style = MaterialTheme.typography.labelLarge, color = t.ink2)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("$done", style = HeroNumberStyle, color = hero.text)
-                    Text(" / ${daily.size} quests", style = MaterialTheme.typography.titleMedium, color = hero.muted, modifier = Modifier.padding(bottom = 10.dp))
+                    Text("$done", style = HeroNumberStyle.copy(fontSize = 52.sp, lineHeight = 52.sp), color = MaterialTheme.colorScheme.onSurface)
+                    Text(" / ${daily.size} quests", style = MaterialTheme.typography.titleSmall, color = t.ink2, modifier = Modifier.padding(bottom = 8.dp))
                 }
             }
-            TileField(
-                lit = tilesRevealed,
-                columns = 8,
-                rows = 4,
-                tileSize = 12.dp,
-                gap = 3.dp,
-                description = "$tilesRevealed map tiles revealed",
-            )
+            Box(Modifier.size(110.dp).clip(RoundedCornerShape(30.dp)).border(4.dp, Color.White, RoundedCornerShape(30.dp)), contentAlignment = Alignment.Center) {
+                Illustration("compass", size = 92.dp)
+            }
         }
         Text(
             if (tilesRevealed == 0) "Your map is still dark. Walk somewhere new to light the first tile." else "$tilesRevealed tiles revealed so far",
             style = MaterialTheme.typography.bodySmall,
-            color = hero.muted,
-            modifier = Modifier.padding(top = 4.dp),
+            color = t.ink2,
+            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
         )
-        HorizontalDivider(Modifier.padding(vertical = 14.dp), color = hero.tileHidden)
         Row(
-            Modifier.fillMaxWidth().clickable(role = Role.Switch) { onToggle(!exploring) },
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(LocalTokens.current.card).clickable(role = Role.Switch) { onToggle(!exploring) }.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Exploration " + if (exploring) "on" else "off", style = MaterialTheme.typography.titleSmall, color = hero.text)
+                Text("Exploration " + if (exploring) "on" else "off", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
                 Text(
                     if (exploring) "Walks reveal tiles and count for quests. Circles never see where you went."
                     else "Turn on so walks count. Separate from sharing your location.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = hero.muted,
+                    color = t.ink2,
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Switch(
-                checked = exploring,
-                onCheckedChange = onToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = hero.onAccent,
-                    checkedTrackColor = hero.accent,
-                    uncheckedThumbColor = hero.muted,
-                    uncheckedTrackColor = hero.raised,
-                    uncheckedBorderColor = hero.muted,
-                ),
-            )
+            LocanaSwitch(checked = exploring, onCheckedChange = onToggle)
         }
-        if (!hasPermission) Text("Needs location permission first.", style = MaterialTheme.typography.labelMedium, color = hero.accent, modifier = Modifier.padding(top = 6.dp))
+        if (!hasPermission) Text("Needs location permission first.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
 @Composable
-private fun ShortcutChip(label: String, icon: ImageVector, onClick: () -> Unit) {
-    AssistChip(
-        onClick = onClick,
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.heightIn(min = 48.dp),
-    )
+private fun ShortcutChip(label: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    LocanaCard(modifier.heightIn(min = 42.dp), shape = RoundedCornerShape(14.dp), onClick = onClick, shadow = 2.dp) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
+        }
+    }
 }
 
-/** Special events get one wide banner with the reward up front: the rarest, most valuable quest. */
+/** Special events get one wide yellow banner with the reward up front: the rarest, most valuable quest. */
 @Composable
 private fun EventQuestBanner(q: QuestDto, seasonName: String?, onClick: () -> Unit) {
-    val reward = LocalReward.current
+    val t = LocalTokens.current
     val source = remember { MutableInteractionSource() }
-    Surface(
-        color = reward.rewardContainer,
-        contentColor = reward.onRewardContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().pressScale(source).clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
-    ) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(conditionIcon(q.condition), reward.reward, reward.rewardContainer)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(q.name, style = MaterialTheme.typography.titleLarge)
-                    Text(listOfNotNull(seasonName, endsIn(q.expiresAt)).joinToString(" · "), style = MaterialTheme.typography.labelMedium)
+    Box(Modifier.fillMaxWidth().padding(bottom = 4.dp).pressScale(source)) {
+        Box(Modifier.matchParentSize().graphicsLayer { translationY = 4.dp.toPx() }.background(t.yellowDark, RoundedCornerShape(24.dp)))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFFFFD45C), Color(0xFFFFB23C))))
+                .clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick)
+                .padding(16.dp),
+        ) {
+            Illustration("monas", Modifier.align(Alignment.TopEnd), size = 120.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TagPill(listOfNotNull(seasonName, endsIn(q.expiresAt)).joinToString(" · "), Color.White.copy(alpha = 0.4f), Color(0xFF1F1645), icon = Icons.Outlined.CalendarMonth)
+                Text(q.name, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF1F1645), modifier = Modifier.fillMaxWidth(0.6f))
+                Text(q.description, style = MaterialTheme.typography.bodySmall, color = Color(0xFF4A3300), modifier = Modifier.fillMaxWidth(0.62f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuestProgressTrack(q.progress, q.target, q.unit, Modifier.weight(1f), fill = Color(0xFF1F1645), track = Color.White.copy(alpha = 0.5f))
+                    XpBadge("+${q.rewardXp} XP")
                 }
-                Text("+${q.rewardXp} XP", style = MaterialTheme.typography.titleMedium)
+                Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, color = Color(0xFF4A3300))
             }
-            Text(q.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 10.dp, bottom = 12.dp))
-            QuestProgressTrack(q.progress, q.target, q.unit, fill = reward.reward)
-            Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
 
 @Composable
 private fun SeasonNote(name: String, description: String, ends: String) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+    LocanaCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), shadow = 2.dp) {
         Column(Modifier.padding(16.dp)) {
-            Text(name, style = MaterialTheme.typography.titleMedium)
+            Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
             Text(description, style = MaterialTheme.typography.bodyMedium)
             Text(ends, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
         }
@@ -313,50 +321,35 @@ private fun SeasonNote(name: String, description: String, ends: String) {
 }
 
 /**
- * Daily quest card. The square icon tells the kind of outing at a glance; a finished quest turns
- * teal and says "Claim" so the one action left is obvious. Color change is a 180 ms crossfade
- * (state indication); the card scales slightly on press.
+ * Daily quest card from the mockup: a tinted icon tile, name and XP badge, the description, a smooth bar and
+ * the progress line. A finished quest turns violet and says "Ready to claim" so the one action left is obvious.
  */
 @Composable
 fun QuestCard(q: QuestDto, onClick: () -> Unit) {
     val completed = q.status == "COMPLETED"
     val claimed = q.status == "CLAIMED"
     val scheme = MaterialTheme.colorScheme
-    val container by animateColorAsState(if (completed) scheme.primaryContainer else scheme.surfaceContainer, tween(Motion.SMALL_MS), label = "quest")
-    val source = remember { MutableInteractionSource() }
-    Surface(
-        color = container,
-        contentColor = if (completed) scheme.onPrimaryContainer else scheme.onSurface,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .pressScale(source)
-            .clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
-    ) {
-        Row(Modifier.padding(16.dp)) {
-            IconTile(
-                conditionIcon(q.condition),
-                container = if (completed) scheme.primary else scheme.surfaceContainerHighest,
-                content = if (completed) scheme.onPrimary else scheme.onSurfaceVariant,
-                modifier = Modifier.alpha(if (claimed) 0.6f else 1f),
-            )
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(q.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    if (claimed) StatusChip("Claimed") else XpChip(q.rewardXp)
+    val t = LocalTokens.current
+    LocanaCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), onClick = onClick, shadow = 3.dp) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconTile(conditionIcon(q.condition), if (completed) scheme.primary else scheme.primaryContainer, if (completed) scheme.onPrimary else scheme.primary, size = 42.dp, modifier = Modifier.alpha(if (claimed) 0.6f else 1f))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(q.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+                    Text(q.description, style = MaterialTheme.typography.bodySmall, color = t.ink2)
                 }
-                Text(q.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
-                QuestProgressTrack(q.progress, q.target, q.unit)
-                Row(Modifier.padding(top = 6.dp)) {
-                    Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-                    Text(
-                        if (completed) "Ready to claim" else if (claimed) "Done" else endsIn(q.expiresAt),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (completed) scheme.primary else LocalContentColor.current,
-                    )
-                }
+                Spacer(Modifier.width(8.dp))
+                if (claimed) StatusChip("Claimed") else XpChip(q.rewardXp)
+            }
+            QuestProgressTrack(q.progress, q.target, q.unit)
+            Row {
+                Text(Formatting.progress(q.progress, q.target, q.unit), style = MaterialTheme.typography.labelMedium, color = t.ink2, modifier = Modifier.weight(1f))
+                Text(
+                    if (completed) "Ready to claim" else if (claimed) "Done" else endsIn(q.expiresAt),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (completed) scheme.primary else t.ink2,
+                )
             }
         }
     }
@@ -367,20 +360,15 @@ fun QuestCard(q: QuestDto, onClick: () -> Unit) {
 private fun WeeklyQuestCard(q: QuestDto, onClick: () -> Unit) {
     val completed = q.status == "COMPLETED"
     val scheme = MaterialTheme.colorScheme
-    val source = remember { MutableInteractionSource() }
-    Surface(
-        color = if (completed) scheme.primaryContainer else scheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.width(220.dp).pressScale(source).clickable(source, indication = LocalIndication.current, role = Role.Button, onClick = onClick),
-    ) {
-        Column(Modifier.padding(16.dp)) {
+    LocanaCard(Modifier.width(230.dp), shape = RoundedCornerShape(22.dp), onClick = onClick, color = if (completed) scheme.primaryContainer else LocalTokens.current.card, shadow = 3.dp) {
+        Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(conditionIcon(q.condition), scheme.surfaceContainerHighest, scheme.onSurfaceVariant, size = 36.dp)
+                IconTile(conditionIcon(q.condition), scheme.primaryContainer, scheme.primary, size = 38.dp)
                 Spacer(Modifier.weight(1f))
                 XpChip(q.rewardXp)
             }
-            Text(q.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(q.description, style = MaterialTheme.typography.bodySmall, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 10.dp))
+            Text(q.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(q.description, style = MaterialTheme.typography.bodySmall, color = LocalTokens.current.ink2, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 10.dp))
             QuestProgressTrack(q.progress, q.target, q.unit)
             Text(
                 if (completed) "Ready to claim" else "${Formatting.progress(q.progress, q.target, q.unit)} · ${endsIn(q.expiresAt)}",
@@ -406,7 +394,7 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                 is UiState.Error -> ErrorState(s.message, { vm.load() })
                 is UiState.Data -> {
                     val q = s.value
-                    LazyColumn(contentPadding = PaddingValues(16.dp)) {
+                    LazyColumn(contentPadding = PaddingValues(20.dp)) {
                         item {
                             // Focal point: how far along this quest is, as the big number.
                             val hero = LocalHero.current
@@ -425,6 +413,11 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                                     }
                                 }
                                 Text(q.description, style = MaterialTheme.typography.bodyLarge, color = hero.text, modifier = Modifier.padding(top = 14.dp))
+                                if (q.unit == "tiles") {
+                                    Box(Modifier.padding(top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                                        TileField(lit = q.progress.coerceAtMost(25), columns = 9, rows = 5, tileSize = 22.dp, gap = 4.dp, litColor = MaterialTheme.colorScheme.primary, hiddenColor = MaterialTheme.colorScheme.primaryContainer, description = "${q.progress} of ${q.target} tiles")
+                                    }
+                                }
                                 Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.Bottom) {
                                     Text(
                                         if (q.unit == "meters") Formatting.distance(q.progress) else "${q.progress}",
@@ -437,16 +430,21 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                                         color = hero.muted,
                                         modifier = Modifier.padding(bottom = 10.dp).weight(1f),
                                     )
-                                    Text("+${q.rewardXp} XP", style = MaterialTheme.typography.titleLarge, color = hero.reward, modifier = Modifier.padding(bottom = 8.dp))
+                                    XpBadge("+${q.rewardXp} XP", Modifier.padding(bottom = 10.dp))
                                 }
                                 QuestProgressTrack(q.progress, q.target, q.unit, Modifier.height(14.dp).padding(top = 2.dp), fill = hero.accent, track = hero.tileHidden)
                             }
-                            Text(
-                                "Progress counts only from precise location fixes taken while exploration is on. Repeat visits to the same tile do not count twice.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 16.dp),
-                            )
+                            Row(
+                                Modifier.padding(top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(LocalTokens.current.skySoft).padding(14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Icon(Icons.Outlined.Info, contentDescription = null, tint = Color(0xFF1E6FB0), modifier = Modifier.size(18.dp))
+                                Text(
+                                    "Progress counts only from precise location fixes taken while exploration is on. Repeat visits to the same tile do not count twice.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF16507F),
+                                )
+                            }
                             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                             if (q.status == "COMPLETED") {
                                 Spacer(Modifier.height(20.dp))
@@ -455,10 +453,7 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                             if (q.recentProgress.isNotEmpty()) SectionHeader("Recent progress")
                         }
                         items(q.recentProgress) { p ->
-                            ListItem(
-                                headlineContent = { Text("+${p.delta} ${q.unit}") },
-                                supportingContent = { Text(Instant.parse(p.at).toString().take(16).replace('T', ' ')) },
-                            )
+                            ListRowCard("+${p.delta} ${q.unit}", subtitle = Instant.parse(p.at).toString().take(16).replace('T', ' '), icon = Icons.Outlined.GridView, modifier = Modifier.padding(top = 8.dp), trailing = null)
                         }
                     }
                 }
@@ -496,16 +491,16 @@ fun QuestHistoryScreen(nav: NavController, vm: QuestHistoryViewModel = hiltViewM
             UiState.Loading -> LoadingState(Modifier.padding(pad))
             is UiState.Error -> ErrorState(s.message, { vm.more() }, Modifier.padding(pad))
             is UiState.Data -> if (s.value.isEmpty()) {
-                EmptyState("Nothing here yet", "Claimed and expired quests show up here.", Modifier.padding(pad))
+                EmptyState("Nothing here yet", "Claimed and expired quests show up here.", Modifier.padding(pad), illustration = "chest")
             } else {
-                LazyColumn(contentPadding = pad) {
+                LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = pad.calculateTopPadding() + 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(s.value, key = { it.id }) { q ->
-                        ListItem(
-                            headlineContent = { Text(q.name) },
-                            supportingContent = { Text(q.startedAt.take(10) + " · " + Formatting.progress(q.progress, q.target, q.unit)) },
-                            trailingContent = { if (q.status == "CLAIMED") XpChip(q.rewardXp) else StatusChip("Expired") },
+                        ListRowCard(
+                            title = q.name,
+                            subtitle = q.startedAt.take(10) + " · " + Formatting.progress(q.progress, q.target, q.unit),
+                            icon = conditionIcon(q.condition),
+                            trailing = { if (q.status == "CLAIMED") XpChip(q.rewardXp) else StatusChip("Expired") },
                         )
-                        HorizontalDivider()
                     }
                     if (vm.hasMore) item { LaunchedEffect(s.value.size) { vm.more() } }
                 }
@@ -521,45 +516,67 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
     val located by vm.located.collectAsStateWithLifecycle()
     BackScaffold("Landmarks", nav) { pad ->
         Column(Modifier.padding(pad)) {
-            OutlinedTextField(
-                value = q,
-                onValueChange = vm::onQuery,
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                label = { Text("Search public places") },
-                singleLine = true,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-            )
+            Row(
+                Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(LocalTokens.current.card).border(2.dp, LocalTokens.current.line, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = LocalTokens.current.ink3)
+                androidx.compose.foundation.text.BasicTextField(
+                    value = q,
+                    onValueChange = vm::onQuery,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f).semantics { contentDescription = "Search public places" },
+                    decorationBox = { inner -> Box { if (q.isEmpty()) Text("Search public places", style = MaterialTheme.typography.bodyLarge, color = LocalTokens.current.ink3); inner() } },
+                )
+            }
             if (!located) {
                 Text(
                     "We don't know where you are right now, so distances are hidden.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 4.dp),
                 )
             }
             when (val s = state) {
                 UiState.Loading -> LoadingState()
                 is UiState.Error -> ErrorState(s.message, { vm.search() })
                 is UiState.Data -> if (s.value.isEmpty()) {
-                    EmptyState("No landmarks found", if (q.isBlank()) "No public landmarks are mapped near you yet." else "Try another name.")
+                    EmptyState("No landmarks found", if (q.isBlank()) "No public landmarks are mapped near you yet." else "Try another name.", illustration = "city")
                 } else {
-                    LazyColumn {
+                    LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
+                            // The first landmark in the list gets the banner the mockup calls "nearest".
+                            s.value.firstOrNull()?.let { n ->
+                                val t = LocalTokens.current
+                                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(cardBrush(t.mintSoft, t.skySoft)).padding(16.dp)) {
+                                    Illustration("monas", Modifier.align(Alignment.CenterEnd), size = 110.dp)
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TagPill(if (located) "Nearest landmark" else "Landmark", Color.White, MaterialTheme.colorScheme.onSurface, icon = Icons.Outlined.Navigation)
+                                        Text(n.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.fillMaxWidth(0.62f))
+                                        XpBadge("+${n.rewardXp} XP")
+                                    }
+                                }
+                            }
+                        }
                         items(s.value, key = { it.id }) { l ->
-                            ListItem(
-                                headlineContent = { Text(l.name) },
-                                supportingContent = {
-                                    val parts = listOfNotNull(
-                                        l.category.replaceFirstChar { it.uppercase() },
-                                        "${Formatting.distance(l.distanceM)} away".takeIf { located },
-                                        l.description,
-                                    )
-                                    Text(parts.joinToString(" · "), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                },
-                                trailingContent = { if (l.visited) StatusChip("Visited") else XpChip(l.rewardXp) },
-                                modifier = l.territoryId?.let { id -> Modifier.clickable(role = Role.Button) { nav.navigate(Routes.territory(id)) } } ?: Modifier,
+                            val t = LocalTokens.current
+                            val (icon, tile, tint) = when (l.category) {
+                                "library" -> Triple(Icons.Outlined.LocalLibrary, t.skySoft, Color(0xFF1E6FB0))
+                                "museum" -> Triple(Icons.Outlined.Museum, t.coralSoft, t.coralDark)
+                                "religious" -> Triple(Icons.Outlined.TempleBuddhist, t.mintSoft, Color(0xFF0E8A5D))
+                                "park" -> Triple(Icons.Outlined.Park, t.mintSoft, Color(0xFF0E8A5D))
+                                else -> Triple(Icons.Outlined.Museum, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+                            }
+                            ListRowCard(
+                                title = l.name,
+                                subtitle = listOfNotNull(l.category.replaceFirstChar { it.uppercase() }, "${Formatting.distance(l.distanceM)} away".takeIf { located }, l.description).joinToString(" · "),
+                                icon = icon, tileColor = tile, tileTint = tint,
+                                trailing = { if (l.visited) StatusChip("Visited") else XpChip(l.rewardXp) },
+                                onClick = l.territoryId?.let { id -> { nav.navigate(Routes.territory(id)) } },
                             )
-                            HorizontalDivider()
                         }
                         item {
                             Text(
@@ -662,11 +679,12 @@ fun ExplorationMapScreen(nav: NavController, vm: ExplorationMapViewModel = hiltV
     BackScaffold("My explored map", nav) { pad ->
         Column(Modifier.padding(pad)) {
             stats?.let { s ->
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Stat("${s.tilesDiscovered}", "tiles")
-                    Stat("${s.landmarksVisited}", "landmarks")
-                    Stat(Formatting.distance(s.totalDistanceM), "walked")
-                    Stat("${s.currentStreak}", "day streak")
+                val t = LocalTokens.current
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Stat("${s.tilesDiscovered}", "tiles", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                    Stat("${s.landmarksVisited}", "landmarks", t.coralDark, Modifier.weight(1f))
+                    Stat(Formatting.distance(s.totalDistanceM), "walked", Color(0xFF0E8A5D), Modifier.weight(1f))
+                    Stat("${s.currentStreak}", "day streak", t.onYellowSoft, Modifier.weight(1f))
                 }
             }
             if (tooLarge) Text("Zoom in to see your tiles.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
@@ -687,16 +705,24 @@ fun ExplorationMapScreen(nav: NavController, vm: ExplorationMapViewModel = hiltV
                     }
                 }
             } else {
-                EmptyState("Map unavailable", "This build has no Google Maps key. Your stats above are still up to date.")
+                Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxSize().clip(RoundedCornerShape(28.dp)).background(Color(0xFF4A3B6E)), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(28.dp)) {
+                        Illustration("compass", size = 110.dp)
+                        Text("Your map is still foggy", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.padding(top = 12.dp))
+                        Text("Every new street you walk clears a tile. Your stats above are still up to date.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f), textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun Stat(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleLarge)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun Stat(value: String, label: String, tint: Color = MaterialTheme.colorScheme.onSurface, modifier: Modifier = Modifier) {
+    LocanaCard(modifier, shape = RoundedCornerShape(16.dp), shadow = 2.dp) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.titleLarge, color = tint)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

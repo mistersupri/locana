@@ -29,6 +29,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.outlined.LocationOff
+import app.locana.ui.theme.LocalTokens
+import app.locana.ui.components.AvatarStack
+import app.locana.ui.components.Illustration
+import app.locana.ui.components.LocanaChip
+import app.locana.ui.components.LocanaCard
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material.icons.outlined.Restaurant
+import androidx.compose.material.icons.outlined.Park
+import androidx.compose.material.icons.outlined.LocalCafe
+import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MyLocation
@@ -56,7 +69,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import app.locana.ui.components.LocanaSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -122,11 +135,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
-/** Collapsed, the sheet shows only the handle, the circle name and the member count; pull it up for the rest. */
-private val SheetPeek = 110.dp
-private val SheetPeekEmpty = 300.dp
-
-private enum class SheetTab { People, Places }
+/** Collapsed, the sheet shows the handle, the circle head and the first member card; pull it up for the rest. */
+private val SheetPeek = 186.dp
+private val SheetPeekEmpty = 250.dp
 
 @OptIn(MapsComposeExperimentalApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -148,7 +159,6 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     androidx.activity.compose.BackHandler(enabled = focusedId != null) { vm.clearFocus() }
     val scaffold = androidx.compose.material3.rememberBottomSheetScaffoldState()
     var layersOpen by remember { mutableStateOf(false) }
-    var tab by rememberSaveable { mutableStateOf(SheetTab.People) }
     var centeredOn by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Frame the circle once per circle, using only positions we are allowed to show.
@@ -199,11 +209,13 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         scaffoldState = scaffold,
         // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
         sheetPeekHeight = if (ui.noCircles) SheetPeekEmpty else SheetPeek,
-        sheetContainerColor = floatingColor(),
-        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetContainerColor = MaterialTheme.colorScheme.background,
+        sheetShape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         sheetShadowElevation = 12.dp,
         sheetTonalElevation = 0.dp,
-        sheetDragHandle = { BottomSheetDefaults.DragHandle() },
+        sheetDragHandle = {
+            Box(Modifier.padding(top = 10.dp, bottom = 10.dp).size(width = 40.dp, height = 5.dp).background(LocalTokens.current.line, RoundedCornerShape(3.dp)))
+        },
         sheetContent = {
             // Expands to at most two thirds of the screen so the map stays in view.
             Box(Modifier.heightIn(max = (screenHeight * 0.66f).dp)) {
@@ -220,11 +232,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                     onManage = { ui.circleId?.let { nav.navigate(Routes.circleMembers(it)) } },
                 ) else CircleSheet(
                     ui = ui,
-                    tab = tab,
-                    onTab = { tab = it },
                     onMember = { vm.focus(it) },
-                    onPlace = { p -> nav.navigate(Routes.placeEdit(p.circleId, p.id)) },
-                    onAddPlace = { ui.circleId?.let { nav.navigate(Routes.placeEdit(it)) } },
                     onCreateCircle = { nav.navigate(Routes.CIRCLE_CREATE) },
                     onJoin = { nav.navigate(Routes.circleJoin()) },
                 )
@@ -337,16 +345,15 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             }
             // Without location permission the circle cannot see you, and sharing is automatic once you belong to one.
             if (!ui.noCircles && !perms.anyLocation && focusedId == null) {
-                Surface(
-                    onClick = { nav.navigate(Routes.PERMISSIONS) },
-                    shape = ControlShape,
-                    color = MaterialTheme.colorScheme.error,
-                    contentColor = MaterialTheme.colorScheme.onError,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp + 52.dp + 12.dp, start = 16.dp, end = 16.dp).fillMaxWidth(),
-                ) {
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Allow location so your circle can see you", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, modifier = Modifier.rotate(-90f))
+                val tk = LocalTokens.current
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 12.dp + 48.dp + 10.dp, start = 16.dp, end = 16.dp).fillMaxWidth().padding(bottom = 4.dp)) {
+                    Box(Modifier.matchParentSize().graphicsLayer { translationY = 4.dp.toPx() }.background(tk.coralDark, ControlShape))
+                    Surface(onClick = { nav.navigate(Routes.PERMISSIONS) }, shape = ControlShape, color = tk.coral, contentColor = Color.White, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Outlined.LocationOff, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Text("Allow location so your circle can see you", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.weight(1f))
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, modifier = Modifier.rotate(-90f))
+                        }
                     }
                 }
             }
@@ -358,7 +365,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
             // Categories of places around the centre of the map. Each tap asks Google once; a second tap clears them.
             if (focusedId == null) {
-                val chipTop = if (!ui.noCircles && !perms.anyLocation) 12.dp + 52.dp + 12.dp + 56.dp else 12.dp + 52.dp + 12.dp
+                val chipTop = if (!ui.noCircles && !perms.anyLocation) 12.dp + 48.dp + 10.dp + 62.dp else 12.dp + 48.dp + 10.dp
                 Column(Modifier.align(Alignment.TopStart).padding(top = chipTop, start = 16.dp, end = 16.dp)) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         NearbyKind.entries.forEach { kind ->
@@ -408,25 +415,25 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
 @Composable
 private fun NearbyChip(kind: NearbyKind, selected: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val dark = LocalDarkTheme.current
-    val container by animateColorAsState(if (selected) (if (dark) scheme.primary else Palette.InkChip) else floatingColor(), tween(180), label = "nearby")
-    val content by animateColorAsState(if (selected) (if (dark) scheme.onPrimary else Color.White) else scheme.onSurface, tween(180), label = "nearbyText")
-    Surface(onClick = onClick, shape = ControlShape, color = container, contentColor = content, shadowElevation = if (selected) 0.dp else 4.dp, modifier = Modifier.heightIn(min = 44.dp)) {
-        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(kind.emoji)
-            Text(kind.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        }
+    val t = LocalTokens.current
+    val (icon, tint) = when (kind) {
+        NearbyKind.FOOD -> Icons.Outlined.Restaurant to t.coral
+        NearbyKind.CAFE -> Icons.Outlined.LocalCafe to Color(0xFFA86F00)
+        NearbyKind.SHOPS -> Icons.Outlined.ShoppingBag to t.sky
+        NearbyKind.SIGHTS -> Icons.Outlined.AccountBalance to t.mint
+        NearbyKind.PARKS -> Icons.Outlined.Park to t.mint
     }
+    LocanaChip(kind.label, selected, onClick, icon = icon, iconTint = tint)
 }
 
-/** Circle switcher. A filled dot means you are sharing with this circle, a hollow one means you are not. */
+/** Circle switcher: a green dot means you are sharing with this circle, a hollow one that you are not. */
 @Composable
 private fun CirclePill(ui: MapUi, onSelect: (String) -> Unit, onNew: () -> Unit, onJoin: () -> Unit, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
     val sharing = ui.sharingHere
     val name = ui.circle?.name ?: if (ui.noCircles) "No circle yet" else "Choose a circle"
     val scheme = MaterialTheme.colorScheme
+    val t = LocalTokens.current
     Box(modifier) {
         Surface(
             onClick = { open = true },
@@ -434,17 +441,17 @@ private fun CirclePill(ui: MapUi, onSelect: (String) -> Unit, onNew: () -> Unit,
             color = floatingColor(),
             contentColor = scheme.onSurface,
             shadowElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { contentDescription = "Circle $name, " + if (sharing) "sharing" else "not sharing" },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = "Circle $name, " + if (sharing) "sharing" else "not sharing" },
         ) {
-            Row(Modifier.padding(start = 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 14.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
                         .size(10.dp)
-                        .background(if (sharing) scheme.primary else Color.Transparent, CircleShape)
-                        .then(if (sharing) Modifier else Modifier.border(2.dp, scheme.outline, CircleShape)),
+                        .background(if (sharing) t.mint else Color.Transparent, CircleShape)
+                        .border(2.dp, if (sharing) t.mintSoft else scheme.outline, CircleShape),
                 )
                 Spacer(Modifier.width(10.dp))
-                Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
             }
         }
@@ -460,68 +467,54 @@ private fun CirclePill(ui: MapUi, onSelect: (String) -> Unit, onNew: () -> Unit,
 @Composable
 private fun CircleSheet(
     ui: MapUi,
-    tab: SheetTab,
-    onTab: (SheetTab) -> Unit,
     onMember: (String) -> Unit,
-    onPlace: (PlaceDto) -> Unit,
-    onAddPlace: () -> Unit,
     onCreateCircle: () -> Unit,
     onJoin: () -> Unit,
 ) {
     if (ui.noCircles) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 24.dp)) {
-            Text("Start with a circle", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                "A circle is a small private group: your family, a partner or friends. Make one and invite them, or join with a code.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PrimaryButton("Create a circle", onCreateCircle)
-                SecondaryButton("I have a code", onJoin)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Start with a circle", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "A small private group: your family, a partner or friends. Make one and invite them, or join with a code.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Illustration("friends", size = 104.dp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton("Create a circle", onCreateCircle, Modifier.weight(1f))
+                SecondaryButton("I have a code", onJoin, Modifier.weight(1f))
             }
         }
         return
     }
     val circle = ui.circle
     val members = remember(ui.members) { ui.members.sortedWith(compareBy({ !it.isMe }, { presenceOrder(it.presence) }, { it.name.lowercase() })) }
-    val live = ui.members.count { !it.isMe && it.presence == Presence.LIVE }
-    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    val live = ui.members.filter { !it.isMe && it.presence == Presence.LIVE }
+    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Text(circle?.name ?: "Loading your circle", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (circle != null) {
-                    Text(
-                        (if (members.size == 1) "1 member" else "${members.size} members") + " · " + if (live == 0) "nobody else live right now" else "$live live now",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(Modifier.padding(top = 14.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SheetChip("People", Icons.Outlined.Groups, tab == SheetTab.People) { onTab(SheetTab.People) }
-                    SheetChip("Places", Icons.Outlined.Place, tab == SheetTab.Places) { onTab(SheetTab.Places) }
-                }
-            }
-        }
-        when (tab) {
-            SheetTab.People -> items(members, key = { it.userId }) { m -> MemberRow(m) { onMember(m.userId) } }
-            SheetTab.Places -> {
-                if (ui.places.isEmpty()) {
-                    item {
-                        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                            Text(
-                                "Save home, school or work to get an alert when someone who shares with you arrives or leaves.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(circle?.name ?: "Loading your circle", style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (circle != null) {
+                        Text(
+                            (if (members.size == 1) "1 member" else "${members.size} members") + when {
+                                live.size == 1 -> " · ${live[0].name} is live"
+                                live.size > 1 -> " · ${live.size} are live"
+                                else -> " · nobody else live right now"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
-                items(ui.places, key = { it.id }) { p -> PlaceRow(p) { onPlace(p) } }
-                item { Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) { SecondaryButton("Add a place", onAddPlace) } }
+                AvatarStack(members.take(3).map { it.name to it.avatarKey }, size = 44.dp, ring = Color.White)
             }
         }
+        items(members, key = { it.userId }) { m -> MemberRow(m, placeAt(m, ui.places)) { onMember(m.userId) } }
     }
 }
 
@@ -532,32 +525,21 @@ private fun presenceOrder(p: Presence) = when (p) {
     Presence.HIDDEN -> 3
 }
 
-/** Icon chips as in the reference: the selected one is a wide dark pill, the others small squares. */
+/** A white card for one member: avatar, "Name · At Home" and how long, with their battery. */
 @Composable
-private fun SheetChip(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val dark = LocalDarkTheme.current
-    val on = if (dark) scheme.primary else Palette.InkChip
-    val container by animateColorAsState(if (selected) on else floatingColor(), tween(180), label = "chip")
-    val content by animateColorAsState(if (selected) (if (dark) scheme.onPrimary else Color.White) else scheme.onSurface, tween(180), label = "chipIcon")
-    val width by animateDpAsState(if (selected) 96.dp else 56.dp, tween(180), label = "chipWidth")
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = container,
-        contentColor = content,
-        shadowElevation = if (selected) 0.dp else 4.dp,
-        modifier = Modifier.size(width, 52.dp).semantics { contentDescription = label },
-    ) {
-        Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp)) }
-    }
-}
-
-@Composable
-private fun MemberRow(m: MemberPin, onClick: () -> Unit) {
+private fun MemberRow(m: MemberPin, place: PlaceDto?, onClick: () -> Unit) {
     val now = System.currentTimeMillis()
     val age = m.recordedAtMs?.let { Freshness.ageLabel(it, now) }
-    val caption = captionFor(m, null, now)
+    val caption = captionFor(m, place, now)
+    val title = buildString {
+        append(if (m.isMe) "${m.name} (you)" else m.name)
+        if (m.presence == Presence.LIVE || m.presence == Presence.STALE) {
+            when {
+                m.movement == "STAYING" && place != null -> append(" · At ${place.name}")
+                caption.label == "Driving" || caption.label == "Walking" || caption.label == "Cycling" -> append(" · ${caption.label}")
+            }
+        }
+    }
     val line = when (m.presence) {
         Presence.LIVE -> when {
             caption.label == "Here for" -> "Here for ${caption.value}"
@@ -568,39 +550,22 @@ private fun MemberRow(m: MemberPin, onClick: () -> Unit) {
         Presence.HIDDEN -> "Not sharing with you"
         Presence.UNAVAILABLE -> "No position yet"
     }
-    Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Show ${m.name}", onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Avatar(m.name, m.avatarKey, size = 52.dp, presence = m.presence, framed = m.framed, userId = m.userId, photoVersion = m.photoVersion)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(if (m.isMe) "${m.name} (you)" else m.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }?.let {
-            Text("$it%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun PlaceRow(p: PlaceDto, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = "Edit ${p.name}", onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconTile(Icons.Outlined.Place, scheme.surfaceContainerHigh, scheme.onSurfaceVariant, size = 48.dp)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(p.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                p.type.lowercase().replaceFirstChar { it.uppercase() } + " · ${p.radiusM} m" +
-                    listOfNotNull("arrivals".takeIf { p.notifyArrive }, "departures".takeIf { p.notifyLeave }).let { if (it.isEmpty()) " · no alerts" else " · alerts for " + it.joinToString(" and ") },
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant,
-            )
+    val battery = m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }
+    LocanaCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), onClick = onClick, shadow = 2.dp) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(m.name, m.avatarKey, size = 44.dp, framed = m.framed, userId = m.userId, photoVersion = m.photoVersion)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    line + (battery?.let { " · \uD83D\uDD0B $it%" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = LocalTokens.current.ink3, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -622,7 +587,7 @@ private fun LayerRow(title: String, sub: String, checked: Boolean, onChange: (Bo
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(sub) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        trailingContent = { LocanaSwitch(checked = checked, onCheckedChange = onChange) },
         modifier = Modifier.clickable(role = Role.Switch) { onChange(!checked) },
     )
 }

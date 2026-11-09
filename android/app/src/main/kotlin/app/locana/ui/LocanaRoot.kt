@@ -8,6 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Map
@@ -20,10 +27,8 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.shadow
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -95,38 +100,58 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
     val route = entry?.destination?.route
     val showBar = route in Routes.tabs
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (showBar) {
-                NavigationBar(containerColor = app.locana.ui.map.floatingColor(), tonalElevation = 0.dp, modifier = Modifier.shadow(8.dp)) {
-                    tabs.forEach { t ->
-                        val selected = route == t.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                // Tab switches are frequent: no transition, restore each tab's state.
-                                nav.navigate(t.route) {
-                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null) },
-                            label = { Text(t.label, fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else null) },
-                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurface,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                        )
+                FloatingTabBar(route) { t ->
+                    // Tab switches are frequent: no transition, restore each tab's state.
+                    nav.navigate(t.route) {
+                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 }
             }
         },
     ) { padding ->
         MainGraph(nav, snackbar, Modifier.padding(padding))
+    }
+}
+
+/** The mockup's capsule: white, floating, the active tab sits in a soft violet pill. */
+@Composable
+private fun FloatingTabBar(route: String?, onSelect: (Tab) -> Unit) {
+    val tokens = app.locana.ui.theme.LocalTokens.current
+    androidx.compose.foundation.layout.Box(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp).navigationBarsPadding(),
+    ) {
+        androidx.compose.material3.Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(34.dp),
+            color = tokens.card.copy(alpha = 0.96f),
+            shadowElevation = 10.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
+                tabs.forEach { t ->
+                    val selected = route == t.route
+                    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    val tint = if (selected) MaterialTheme.colorScheme.primary else tokens.ink3
+                    androidx.compose.foundation.layout.Column(
+                        Modifier
+                            .weight(1f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(26.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+                            .clickable(interactionSource = source, indication = null, role = androidx.compose.ui.semantics.Role.Tab, onClick = { onSelect(t) })
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                        Text(t.label, style = MaterialTheme.typography.labelSmall, color = tint, modifier = Modifier.padding(top = 2.dp))
+                    }
+                }
+            }
+        }
     }
 }
 

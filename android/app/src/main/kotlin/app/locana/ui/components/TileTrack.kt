@@ -21,9 +21,8 @@ import app.locana.ui.theme.LocalReducedMotion
 import app.locana.ui.theme.Motion
 
 /**
- * Identity motif: progress drawn as a row of map tiles being revealed, the same act the game
- * rewards on the map. Used for XP, quests and challenges.
- * Motion: the fill eases to its new value (state indication) and is skipped with reduced motion.
+ * Progress bar from the mockup: a rounded track with a rounded fill. [segments] is kept for call sites that
+ * still pass it. Motion: the fill eases to its new value (state indication) and is skipped with reduced motion.
  */
 @Composable
 fun TileTrack(
@@ -32,7 +31,7 @@ fun TileTrack(
     segments: Int = 12,
     height: Dp = 10.dp,
     fill: Color = MaterialTheme.colorScheme.primary,
-    track: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    track: Color = MaterialTheme.colorScheme.primaryContainer,
 ) {
     val target = fraction.coerceIn(0f, 1f)
     val animated by animateFloatAsState(target, animationSpec = Motion.move(260), label = "tiles")
@@ -43,16 +42,11 @@ fun TileTrack(
             .height(height)
             .semantics { progressBarRangeInfo = ProgressBarRangeInfo(target, 0f..1f) },
     ) {
-        val gap = 3.dp.toPx()
-        val n = segments.coerceAtLeast(1)
-        val w = (size.width - gap * (n - 1)) / n
-        val r = CornerRadius(2.dp.toPx())
-        for (i in 0 until n) {
-            val x = i * (w + gap)
-            drawRoundRect(track, Offset(x, 0f), Size(w, size.height), r)
-            val filled = (f * n - i).coerceIn(0f, 1f)
-            if (filled > 0f) drawRoundRect(fill, Offset(x, 0f), Size(w * filled, size.height), r)
-        }
+        val r = CornerRadius(size.height / 2)
+        drawRoundRect(track, Offset.Zero, size, r)
+        // A started bar always shows a knob, so "0 of 3" and "1 of 30" still read as a bar.
+        val w = if (f <= 0f) 0f else maxOf(size.height, size.width * f)
+        if (w > 0f) drawRoundRect(fill, Offset.Zero, Size(w, size.height), r)
     }
 }
 
@@ -64,7 +58,7 @@ fun QuestProgressTrack(
     unit: String,
     modifier: Modifier = Modifier,
     fill: Color = MaterialTheme.colorScheme.primary,
-    track: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    track: Color = MaterialTheme.colorScheme.primaryContainer,
 ) {
     val discrete = unit != "meters" && target in 1..12
     TileTrack(

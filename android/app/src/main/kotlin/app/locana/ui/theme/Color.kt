@@ -8,56 +8,78 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /*
- * Palette (why): navy is the calm, trustworthy base for a product that handles location;
- * violet is the single accent (taken from the owner's reference) and always means "location / live / act here"; amber appears
- * only for XP and rewards so game value never competes with safety signals.
- * Contrast pairs were checked for WCAG AA (body text >= 4.5:1).
+ * Palette (why): taken from the owner's mockup (locana.pen). A warm cream page, white cards and one
+ * saturated violet for everything you can act on. Yellow marks XP and rewards, mint marks "good / live",
+ * coral marks danger and alerts, sky marks information. Every text pair was checked for WCAG AA:
+ * ink on cream 15.7:1, ink-2 on white 6.6:1, white on primary 6.2:1, primary on white 6.2:1, #8A5A00 on
+ * yellow-soft 5.4:1. ink-3 is for decoration and placeholders only.
  */
 object Palette {
-    val Navy950 = Color(0xFF0D1522)
-    val Navy900 = Color(0xFF142033)
-    val Navy850 = Color(0xFF1B2A40)
-    val Navy800 = Color(0xFF22344D)
-    val Navy700 = Color(0xFF33465F)
-    val Mist100 = Color(0xFFE8EEF5)
-    val Mist300 = Color(0xFFA9B6C6)
-    val Violet300 = Color(0xFFBBA6FF)
-    val Violet900 = Color(0xFF2F1F6E)
-    val Violet100 = Color(0xFFE6DCFF)
-    val Violet700 = Color(0xFF5B2DD0)
-    val Violet50 = Color(0xFFECE6FB)
-    val Paper = Color(0xFFF6F4FA)
-    val Ink = Color(0xFF1B1530)
-    val InkChip = Color(0xFF2B2347)
-    val Slate600 = Color(0xFF4A5868)
-    val Amber400 = Color(0xFFF2B544)
-    val Amber800 = Color(0xFF8A5600)
-    val Amber100 = Color(0xFFFBE7BF)
+    val Cream = Color(0xFFFBF6EE)
+    val Ink = Color(0xFF1F1645)
+    val Ink2 = Color(0xFF5F587F)
+    val Ink3 = Color(0xFF9C97B6)
+    val Line = Color(0xFFE9E3F4)
+    val Violet700 = Color(0xFF6B3BF5)
+    val Violet900 = Color(0xFF4620C4)
+    val Violet100 = Color(0xFFECE4FF)
+    val Violet50 = Color(0xFFF4EFFF)
+    val Violet300 = Color(0xFFB9A2FF)
+    val Yellow = Color(0xFFFFC93C)
+    val YellowDark = Color(0xFFD99A0B)
+    val YellowSoft = Color(0xFFFFF1C9)
+    val Mint = Color(0xFF22C489)
+    val MintSoft = Color(0xFFD8F6E9)
+    val Coral = Color(0xFFFF6550)
+    val CoralDark = Color(0xFFD13E2B)
+    val CoralSoft = Color(0xFFFFE2DC)
+    val Sky = Color(0xFF45AFFF)
+    val SkySoft = Color(0xFFDCF0FF)
+
+    // Dark theme surfaces: the same hues, deep and a little violet.
+    val Night950 = Color(0xFF100B22)
+    val Night900 = Color(0xFF181133)
+    val Night850 = Color(0xFF211946)
+    val Night800 = Color(0xFF2B2158)
+    val Mist100 = Color(0xFFEDE8FB)
+    val Mist300 = Color(0xFFB3ABD1)
+
+    // Kept for call sites that still name them.
+    val Paper = Cream
+    val Slate600 = Ink2
+    val InkChip = Ink
+    val Amber400 = Yellow
+    val Amber800 = Color(0xFF8A5A00)
+    val Amber100 = YellowSoft
 }
 
 val DarkColors = darkColorScheme(
     primary = Palette.Violet300,
     onPrimary = Color(0xFF1A0B45),
-    primaryContainer = Palette.Violet900,
+    primaryContainer = Color(0xFF3A2A7A),
     onPrimaryContainer = Palette.Violet100,
     secondary = Palette.Mist300,
-    onSecondary = Palette.Navy950,
-    secondaryContainer = Palette.Navy800,
+    onSecondary = Palette.Night950,
+    secondaryContainer = Palette.Night800,
     onSecondaryContainer = Palette.Mist100,
-    background = Palette.Navy950,
+    tertiary = Palette.Yellow,
+    onTertiary = Color(0xFF3A2800),
+    tertiaryContainer = Color(0xFF4A3500),
+    onTertiaryContainer = Palette.YellowSoft,
+    background = Palette.Night950,
     onBackground = Palette.Mist100,
-    surface = Palette.Navy950,
+    surface = Palette.Night950,
     onSurface = Palette.Mist100,
-    surfaceVariant = Palette.Navy850,
+    surfaceVariant = Palette.Night850,
     onSurfaceVariant = Palette.Mist300,
-    surfaceContainerLowest = Color(0xFF0A111C),
-    surfaceContainerLow = Palette.Navy900,
-    surfaceContainer = Palette.Navy900,
-    surfaceContainerHigh = Palette.Navy850,
-    surfaceContainerHighest = Palette.Navy800,
-    outline = Color(0xFF667B95),
-    outlineVariant = Color(0xFF26364C),
-    error = Color(0xFFFF8A80),
+    surfaceContainerLowest = Palette.Night900,
+    surfaceContainerLow = Palette.Night900,
+    surfaceContainer = Palette.Night900,
+    surfaceContainerHigh = Palette.Night850,
+    surfaceContainerHighest = Palette.Night800,
+    outline = Color(0xFF7C73A6),
+    outlineVariant = Color(0xFF332A5E),
+    error = Color(0xFFFF8A7A),
     onError = Color(0xFF3B0907),
     errorContainer = Color(0xFF5C1A15),
     onErrorContainer = Color(0xFFFFDAD5),
@@ -66,56 +88,93 @@ val DarkColors = darkColorScheme(
 val LightColors = lightColorScheme(
     primary = Palette.Violet700,
     onPrimary = Color.White,
-    primaryContainer = Palette.Violet50,
-    onPrimaryContainer = Color(0xFF22095F),
-    secondary = Palette.Slate600,
+    primaryContainer = Palette.Violet100,
+    onPrimaryContainer = Palette.Violet900,
+    secondary = Palette.Ink2,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE8E2F5),
+    secondaryContainer = Palette.Violet50,
     onSecondaryContainer = Palette.Ink,
-    background = Palette.Paper,
+    tertiary = Palette.YellowDark,
+    onTertiary = Color.White,
+    tertiaryContainer = Palette.YellowSoft,
+    onTertiaryContainer = Palette.Amber800,
+    background = Palette.Cream,
     onBackground = Palette.Ink,
-    surface = Palette.Paper,
+    surface = Palette.Cream,
     onSurface = Palette.Ink,
-    surfaceVariant = Color(0xFFEAE6F2),
-    onSurfaceVariant = Palette.Slate600,
+    surfaceVariant = Palette.Violet50,
+    onSurfaceVariant = Palette.Ink2,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFFBFCFB),
+    surfaceContainerLow = Color.White,
     surfaceContainer = Color.White,
-    surfaceContainerHigh = Color(0xFFF0EDF6),
-    surfaceContainerHighest = Color(0xFFE6E1F0),
-    outline = Color(0xFF6B7988),
-    outlineVariant = Color(0xFFDAD4E6),
-    error = Color(0xFFB3261E),
+    surfaceContainerHigh = Palette.Violet50,
+    surfaceContainerHighest = Palette.Violet100,
+    outline = Palette.Ink3,
+    outlineVariant = Palette.Line,
+    error = Palette.CoralDark,
     onError = Color.White,
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B),
+    errorContainer = Palette.CoralSoft,
+    onErrorContainer = Color(0xFF7A1D10),
+)
+
+/** The mockup's accent hues, outside Material roles so each keeps one job. */
+@Immutable
+data class Tokens(
+    val ink2: Color,
+    val ink3: Color,
+    val line: Color,
+    val card: Color,
+    val primaryDark: Color,
+    val yellow: Color,
+    val yellowDark: Color,
+    val yellowSoft: Color,
+    val onYellowSoft: Color,
+    val mint: Color,
+    val mintSoft: Color,
+    val coral: Color,
+    val coralDark: Color,
+    val coralSoft: Color,
+    val sky: Color,
+    val skySoft: Color,
+    /** Fill under the chunky 3D buttons' bottom edge for secondary buttons. */
+    val edge: Color,
+)
+
+val LightTokens = Tokens(
+    ink2 = Palette.Ink2, ink3 = Palette.Ink3, line = Palette.Line, card = Color.White, primaryDark = Palette.Violet900,
+    yellow = Palette.Yellow, yellowDark = Palette.YellowDark, yellowSoft = Palette.YellowSoft, onYellowSoft = Palette.Amber800,
+    mint = Palette.Mint, mintSoft = Palette.MintSoft, coral = Palette.Coral, coralDark = Palette.CoralDark, coralSoft = Palette.CoralSoft,
+    sky = Palette.Sky, skySoft = Palette.SkySoft, edge = Color(0xFFE1D6FA),
+)
+
+val DarkTokens = Tokens(
+    ink2 = Palette.Mist300, ink3 = Color(0xFF8A82B0), line = Color(0xFF332A5E), card = Palette.Night900, primaryDark = Color(0xFF7B5FD6),
+    yellow = Palette.Yellow, yellowDark = Palette.YellowDark, yellowSoft = Color(0xFF4A3500), onYellowSoft = Palette.YellowSoft,
+    mint = Color(0xFF3DD9A0), mintSoft = Color(0xFF0F3A2D), coral = Color(0xFFFF7A66), coralDark = Color(0xFFFF8A7A), coralSoft = Color(0xFF4A1E18),
+    sky = Color(0xFF6BC0FF), skySoft = Color(0xFF12344D), edge = Color(0xFF3A2F6B),
 )
 
 /** Reward colors live outside Material roles so they cannot leak into ordinary UI. */
 @Immutable
 data class RewardColors(val reward: Color, val onRewardContainer: Color, val rewardContainer: Color)
 
-val DarkReward = RewardColors(reward = Palette.Amber400, onRewardContainer = Palette.Amber100, rewardContainer = Color(0xFF3D2A06))
-val LightReward = RewardColors(reward = Palette.Amber800, onRewardContainer = Color(0xFF4A2E00), rewardContainer = Palette.Amber100)
+val DarkReward = RewardColors(reward = Palette.Yellow, onRewardContainer = Palette.YellowSoft, rewardContainer = Color(0xFF4A3500))
+val LightReward = RewardColors(reward = Palette.Amber800, onRewardContainer = Color(0xFF6B4400), rewardContainer = Palette.YellowSoft)
 
-/** Avatar backgrounds keyed by the server's avatarKey. Initials sit on them in white or ink. */
+/** Avatar backgrounds keyed by the server's avatarKey. Initials sit on them in white. */
 val AvatarColors = mapOf(
-    "explorer_teal" to (Color(0xFF5B2DD0) to Color.White),
-    "explorer_amber" to (Color(0xFFB85C00) to Color.White),
-    "explorer_slate" to (Color(0xFF4A5868) to Color.White),
-    "explorer_coral" to (Color(0xFFB4483C) to Color.White),
-    "explorer_moss" to (Color(0xFF4F6B2E) to Color.White),
-    "explorer_plum" to (Color(0xFF6E4A7E) to Color.White),
+    "explorer_teal" to (Palette.Violet700 to Color.White),
+    "explorer_amber" to (Color(0xFFD9680F) to Color.White),
+    "explorer_slate" to (Color(0xFF4A5568) to Color.White),
+    "explorer_coral" to (Color(0xFFD13E2B) to Color.White),
+    "explorer_moss" to (Color(0xFF2E7D4F) to Color.White),
+    "explorer_plum" to (Color(0xFF8E4FA8) to Color.White),
 )
 
 /*
  * Hero panels (why): each main tab has one raised panel that holds its focal point (level, today's
- * quests, the circle, you). In the light theme it is a white card with a soft shadow, the same
- * language as the floating map controls; in the dark theme it is a lifted navy surface. Every pair
- * below was checked for WCAG AA: Ink on white 17.3:1, Slate600 on white 7.3:1, Violet700 on white
- * 5.8:1, Amber800 on white 6.2:1; dark: Mist100 on Navy850 12.6:1, Violet300 6.8:1, Amber400 7.9:1.
- * Unlit tiles are about 1.6:1 against the panel (lit ones 3.5:1 against unlit), decorative only:
- * the number beside every tile field carries the meaning.
+ * quests, the circle, you). In the light theme it is a white card with a soft shadow; in the dark theme a
+ * lifted violet surface.
  */
 @Immutable
 data class HeroColors(
@@ -127,29 +186,36 @@ data class HeroColors(
     val onAccent: Color,
     val reward: Color,
     val tileHidden: Color,
-    /** Light panels need a shadow to separate from the paper background; dark ones do not. */
+    /** Light panels need a shadow to separate from the page; dark ones do not. */
     val shadow: Dp,
 )
 
 val LightHero = HeroColors(
     background = Color.White,
-    raised = Color(0xFFF1EEF8),
+    raised = Palette.Violet50,
     text = Palette.Ink,
-    muted = Palette.Slate600,
+    muted = Palette.Ink2,
     accent = Palette.Violet700,
     onAccent = Color.White,
     reward = Palette.Amber800,
-    tileHidden = Color(0xFFBFCCD2),
+    tileHidden = Color(0xFFDDD3F5),
     shadow = 6.dp,
 )
 val DarkHero = HeroColors(
-    background = Palette.Navy850,
-    raised = Palette.Navy800,
+    background = Palette.Night850,
+    raised = Palette.Night800,
     text = Palette.Mist100,
     muted = Palette.Mist300,
     accent = Palette.Violet300,
-    onAccent = Palette.Navy950,
-    reward = Palette.Amber400,
-    tileHidden = Color(0xFF4A6085),
+    onAccent = Color(0xFF1A0B45),
+    reward = Palette.Yellow,
+    tileHidden = Color(0xFF4A3F82),
     shadow = 0.dp,
 )
+
+/** The mockup's soft card gradients, as a lifted violet surface in the dark theme. Light uses the colours given. */
+@androidx.compose.runtime.Composable
+fun cardBrush(from: Color, to: Color, vertical: Boolean = false): androidx.compose.ui.graphics.Brush {
+    val colors = if (LocalDarkTheme.current) listOf(Palette.Night850, Palette.Night800) else listOf(from, to)
+    return if (vertical) androidx.compose.ui.graphics.Brush.verticalGradient(colors) else androidx.compose.ui.graphics.Brush.linearGradient(colors)
+}

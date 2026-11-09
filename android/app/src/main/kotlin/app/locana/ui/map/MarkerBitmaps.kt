@@ -41,127 +41,118 @@ data class PinSpec(
 
 class RenderedPin(val bitmap: Bitmap, /** 0..1 from the top: where the person's position is. */ val anchorY: Float)
 
-private const val AVATAR = 56f
-private const val RADIUS = 20f
-private const val RING = 3f
-private const val TAIL = 9f
-private const val DOT = 10f
-private const val BUBBLE_H = 42f
-private const val BUBBLE_GAP = 6f
+private const val AVATAR = 66f
+private const val RADIUS = 24f
+private const val RING = 4f
+private const val EDGE = 4f
+private const val DOT = 14f
+private const val BUBBLE_H = 46f
 
 private fun paint(color: Int = Color.BLACK, style: Paint.Style = Paint.Style.FILL) = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG).apply {
     this.color = color
     this.style = style
 }
 
+private fun darken(c: Int, by: Float): Int = Color.rgb(
+    (Color.red(c) * (1 - by)).toInt(), (Color.green(c) * (1 - by)).toInt(), (Color.blue(c) * (1 - by)).toInt(),
+)
+
+/**
+ * A member on the map, as drawn in the mockup: a rounded-square avatar with a white ring and a solid
+ * edge underneath, an optional place or activity badge, a white bubble ("Here for 3 hrs, 52 mins"), and
+ * a dot below that marks the exact position (the marker's anchor).
+ */
 fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin {
     fun px(dp: Float) = dp * density
-    val labelPaint = paint(0xFF6B6578.toInt()).apply { textSize = px(11f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL) }
-    val valuePaint = paint(0xFF1B1530.toInt()).apply { textSize = px(14f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
-    val emojiPaint = paint().apply { textSize = px(20f) }
+    val labelPaint = paint(0xFF5F587F.toInt()).apply { textSize = px(11f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL) }
+    val valuePaint = paint(0xFF1F1645.toInt()).apply { textSize = px(15f); typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+    val emojiPaint = paint().apply { textSize = px(22f); textAlign = Paint.Align.CENTER }
 
     val hasBubble = spec.bubbleValue != null
     val textW = if (hasBubble) max(labelPaint.measureText(spec.bubbleLabel ?: ""), valuePaint.measureText(spec.bubbleValue!!)) else 0f
-    val emojiW = if (spec.emoji != null) px(30f) else 0f
-    val bubbleW = textW + emojiW + px(24f)
+    val tile = if (spec.emoji != null) px(34f) + px(8f) else 0f
+    val bubbleW = px(6f) + tile + textW + px(14f)
 
     val halfAvatar = px(AVATAR / 2 + RING + 6f)
-    val bubbleStart = px(14f)
+    val bubbleStart = px(16f)
     val halfWidth = max(halfAvatar, if (hasBubble) bubbleStart + bubbleW + px(6f) else 0f)
     val width = (halfWidth * 2).toInt()
 
-    val bubbleTop = px(4f)
-    val avatarTop = px(4f + if (hasBubble) BUBBLE_H - 12f else 0f) + px(RING)
+    val bubbleTop = px(6f)
+    val avatarTop = px(6f + if (hasBubble) BUBBLE_H - 14f else 0f) + px(RING)
     val avatarBottom = avatarTop + px(AVATAR)
-    val tailTip = avatarBottom + px(TAIL)
-    val dotCenter = tailTip + px(DOT / 2 + 1f)
-    val height = (dotCenter + px(DOT / 2 + 6f)).toInt()
+    val dotCenter = avatarBottom + px(RING + EDGE + 10f + DOT / 2)
+    val height = (dotCenter + px(DOT / 2 + 8f)).toInt()
 
     val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val c = Canvas(bmp)
     val cx = width / 2f
 
-    // Bubble first, so the avatar sits on top of its corner like in the reference.
+    // Bubble first, so the avatar sits on top of its corner.
     if (hasBubble) {
-        val r = RectF(cx + bubbleStart - px(0f), bubbleTop, cx + bubbleStart + bubbleW, bubbleTop + px(BUBBLE_H))
-        val shadow = paint(0x00000000).apply { setShadowLayer(px(5f), 0f, px(2f), 0x33000000) }
-        shadow.color = Color.WHITE
-        c.drawRoundRect(r, px(14f), px(14f), shadow)
-        c.drawRoundRect(r, px(14f), px(14f), paint(0xFFFFFFFF.toInt()))
-        var x = r.left + px(12f)
+        val r = RectF(cx + bubbleStart, bubbleTop, cx + bubbleStart + bubbleW, bubbleTop + px(BUBBLE_H))
+        val shadow = paint(Color.WHITE).apply { setShadowLayer(px(5f), 0f, px(3f), 0x33000000) }
+        c.drawRoundRect(r, px(16f), px(16f), shadow)
+        c.drawRoundRect(r, px(16f), px(16f), paint(Color.WHITE))
+        var x = r.left + px(6f)
         if (spec.emoji != null) {
+            val t = RectF(x, r.centerY() - px(17f), x + px(34f), r.centerY() + px(17f))
+            c.drawRoundRect(t, px(12f), px(12f), paint(0xFFF4EFFF.toInt()))
             val fm = emojiPaint.fontMetrics
-            c.drawText(spec.emoji, x, r.centerY() - (fm.ascent + fm.descent) / 2, emojiPaint)
-            x += emojiW
+            c.drawText(spec.emoji, t.centerX(), t.centerY() - (fm.ascent + fm.descent) / 2, emojiPaint)
+            x += px(34f) + px(8f)
         }
         val label = spec.bubbleLabel
         if (label != null) {
-            c.drawText(label, x, r.top + px(17f), labelPaint)
-            c.drawText(spec.bubbleValue!!, x, r.top + px(34f), valuePaint)
+            c.drawText(label, x, r.top + px(19f), labelPaint)
+            c.drawText(spec.bubbleValue!!, x, r.top + px(36f), valuePaint)
         } else {
             val fm = valuePaint.fontMetrics
             c.drawText(spec.bubbleValue!!, x, r.centerY() - (fm.ascent + fm.descent) / 2, valuePaint)
         }
     }
 
-    // Avatar: rounded square with a ring, a soft shadow and a small tail pointing at the dot.
+    // Avatar: solid edge, white ring, then the colour (or the photo) on top.
     val ringColor = if (spec.framed) spec.frameColor else Color.WHITE
-    val outer = RectF(cx - px(AVATAR / 2 + RING), avatarTop - px(RING), cx + px(AVATAR / 2 + RING), avatarBottom + px(RING))
-    val tail = Path().apply {
-        moveTo(cx - px(8f), avatarBottom + px(RING) - px(2f))
-        lineTo(cx, tailTip)
-        lineTo(cx + px(8f), avatarBottom + px(RING) - px(2f))
-        close()
-    }
-    val shadowPaint = paint(ringColor).apply { setShadowLayer(px(6f), 0f, px(2f), 0x40000000) }
-    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), shadowPaint)
-    c.drawPath(tail, shadowPaint)
-    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), paint(ringColor))
-    c.drawPath(tail, paint(ringColor))
-
+    val face = if (spec.stale) 0xFFA99BD8.toInt() else spec.avatarColor
+    val edge = if (spec.stale) 0xFF7C6BB8.toInt() else darken(spec.avatarColor, 0.4f)
     val inner = RectF(cx - px(AVATAR / 2), avatarTop, cx + px(AVATAR / 2), avatarBottom)
-    val bg = if (spec.stale) blend(spec.avatarColor, 0xFF8A8A94.toInt(), 0.55f) else spec.avatarColor
-    c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint(bg))
+    val outer = RectF(inner).apply { inset(-px(RING), -px(RING)) }
+    val edgeRect = RectF(outer).apply { offset(0f, px(EDGE)) }
+    val soft = paint(edge).apply { setShadowLayer(px(6f), 0f, px(4f), 0x30000000) }
+    c.drawRoundRect(edgeRect, px(RADIUS + RING), px(RADIUS + RING), soft)
+    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), paint(ringColor))
+    c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint(face))
     if (photo != null) {
-        // The photo fills the rounded square; BitmapShader keeps its edges as crisp as the rest of the pin.
         val scaled = Bitmap.createScaledBitmap(photo, inner.width().toInt(), inner.height().toInt(), true)
         val shader = android.graphics.BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
-        val m = android.graphics.Matrix().apply { setTranslate(inner.left, inner.top) }
-        shader.setLocalMatrix(m)
+        shader.setLocalMatrix(android.graphics.Matrix().apply { setTranslate(inner.left, inner.top) })
         c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint().apply { this.shader = shader })
-    }
-    if (spec.stale) {
-        val dash = paint(0xFFFFFFFF.toInt(), Paint.Style.STROKE).apply {
-            strokeWidth = px(2f)
-            pathEffect = DashPathEffect(floatArrayOf(px(5f), px(4f)), 0f)
+    } else {
+        val initials = paint(spec.avatarTextColor).apply {
+            textSize = px(24f)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
         }
-        val d = RectF(inner).apply { inset(px(4f), px(4f)) }
-        c.drawRoundRect(d, px(RADIUS - 4f), px(RADIUS - 4f), dash)
+        val fm = initials.fontMetrics
+        c.drawText(spec.initials, inner.centerX(), inner.centerY() - (fm.ascent + fm.descent) / 2, initials)
     }
-    val initials = paint(if (photo != null) 0x00000000 else spec.avatarTextColor).apply {
-        textSize = px(20f)
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        textAlign = Paint.Align.CENTER
-    }
-    val fm = initials.fontMetrics
-    c.drawText(spec.initials, inner.centerX(), inner.centerY() - (fm.ascent + fm.descent) / 2, initials)
 
-    // Badge: a small white disc with the emoji, on the avatar's lower right corner.
+    // Badge: a small white disc on the avatar's lower right corner.
     if (spec.emoji != null) {
-        val br = px(13f)
-        val bx = inner.right - px(2f)
-        val by = inner.bottom - px(2f)
-        val badge = paint(Color.WHITE).apply { setShadowLayer(px(3f), 0f, px(1f), 0x44000000) }
-        c.drawCircle(bx, by, br, badge)
-        val e = paint().apply { textSize = px(15f); textAlign = Paint.Align.CENTER }
+        val br = px(14f)
+        val bx = outer.right - px(4f)
+        val by = outer.bottom - px(4f)
+        c.drawCircle(bx, by, br, paint(Color.WHITE).apply { setShadowLayer(px(3f), 0f, px(1f), 0x44000000) })
+        val e = paint().apply { textSize = px(16f); textAlign = Paint.Align.CENTER }
         val efm = e.fontMetrics
         c.drawText(spec.emoji, bx, by - (efm.ascent + efm.descent) / 2, e)
     }
 
     // The position itself: a crisp dot with a white ring. This is the marker's anchor.
-    val dotColor = if (spec.stale) 0xFF8A8A94.toInt() else spec.accent
-    c.drawCircle(cx, dotCenter, px(DOT / 2 + 2f), paint(Color.WHITE).apply { setShadowLayer(px(2f), 0f, px(1f), 0x44000000) })
-    c.drawCircle(cx, dotCenter, px(DOT / 2), paint(dotColor))
+    val dotColor = if (spec.stale) 0xFF9C97B6.toInt() else spec.accent
+    c.drawCircle(cx, dotCenter, px(DOT / 2), paint(Color.WHITE).apply { setShadowLayer(px(2f), 0f, px(1f), 0x44000000) })
+    c.drawCircle(cx, dotCenter, px(DOT / 2 - 3f), paint(dotColor))
 
     return RenderedPin(bmp, dotCenter / height)
 }

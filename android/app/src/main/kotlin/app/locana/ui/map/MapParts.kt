@@ -56,7 +56,7 @@ import app.locana.ui.theme.LocalReward
 fun floatingColor(): Color =
     if (LocalDarkTheme.current) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
 
-val ControlShape = RoundedCornerShape(16.dp)
+val ControlShape = RoundedCornerShape(18.dp)
 
 /** Square floating button. The caller puts an [Icon] with a content description inside. */
 @Composable
@@ -69,7 +69,7 @@ fun MapControl(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Com
         color = floatingColor(),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 6.dp,
-        modifier = modifier.size(52.dp).pressScale(source),
+        modifier = modifier.size(48.dp).pressScale(source),
     ) { Box(contentAlignment = Alignment.Center) { content() } }
 }
 
@@ -80,15 +80,15 @@ fun MapPill(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Mod
     Surface(
         onClick = onClick,
         interactionSource = source,
-        shape = ControlShape,
+        shape = RoundedCornerShape(999.dp),
         color = floatingColor(),
         contentColor = MaterialTheme.colorScheme.onSurface,
         shadowElevation = 6.dp,
-        modifier = modifier.heightIn(min = 52.dp).pressScale(source),
+        modifier = modifier.heightIn(min = 44.dp).pressScale(source),
     ) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
-            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Row(Modifier.padding(start = 12.dp, end = 16.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

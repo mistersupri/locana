@@ -1,6 +1,17 @@
 package app.locana.ui.map
 
+import app.locana.ui.theme.cardBrush
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import app.locana.ui.theme.LocalTokens
+import app.locana.ui.components.LocanaCard
+import app.locana.ui.components.Illustration
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,7 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import app.locana.ui.components.LocanaSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -94,24 +105,26 @@ internal fun MemberDetail(
     val status = statusFor(m, place, me, System.currentTimeMillis())
     LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (m.isMe) "${m.name} (you)" else m.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+            val t = LocalTokens.current
+            val (c1, c2, art) = when {
+                m.movement == "STAYING" -> Triple(Color(0xFFFFE9D6), Color(0xFFFFF6E2), if (place?.type == "WORK") "office" else "house")
+                status.title == "Driving" -> Triple(t.skySoft, Color.White, "car")
+                status.title == "Walking" -> Triple(t.mintSoft, Color.White, "sneaker")
+                else -> Triple(MaterialTheme.colorScheme.primaryContainer, Color.White, "compass")
+            }
+            Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(180.dp).clip(RoundedCornerShape(28.dp)).background(cardBrush(c1, c2))) {
+                Column(Modifier.align(Alignment.CenterStart).padding(start = 20.dp).fillMaxWidth(0.58f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }?.let { BatteryChip(it) }
+                    Text(
+                        (if (m.isMe) "You · " else "") + status.title,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 29.sp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(status.subtitle, style = MaterialTheme.typography.bodySmall, color = t.ink2)
                 }
-                Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(status.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(status.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    status.emoji?.let { Text(it, fontSize = 44.sp) }
+                Box(Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).size(124.dp).clip(RoundedCornerShape(32.dp)).border(4.dp, Color.White, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
+                    Illustration(art, size = 100.dp)
                 }
             }
         }
@@ -141,15 +154,17 @@ internal fun MemberDetail(
             }
         }
         if (!m.isMe) item {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                HorizontalDivider(Modifier.padding(bottom = 8.dp))
-                ListItem(
-                    headlineContent = { Text("Hide my location from ${m.name}") },
-                    supportingContent = { Text("They stay in the circle but see you as hidden.") },
-                    trailingContent = { Switch(checked = m.hiddenFromThem, onCheckedChange = { onHide() }) },
-                    modifier = Modifier.clickable(role = Role.Switch, onClick = onHide),
-                )
-                Spacer(Modifier.height(8.dp))
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LocanaCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), shadow = 3.dp) {
+                    Row(Modifier.padding(16.dp).clickable(role = Role.Switch, onClick = onHide), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Hide my location from ${m.name}", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
+                            Text("They stay in the circle but see you as hidden.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        LocanaSwitch(checked = m.hiddenFromThem, onCheckedChange = { onHide() })
+                    }
+                }
                 SecondaryButton("Block or report", onManage, Modifier.fillMaxWidth())
             }
         }
@@ -158,10 +173,13 @@ internal fun MemberDetail(
 
 @Composable
 private fun BatteryChip(pct: Int) {
-    Surface(shape = RoundedCornerShape(16.dp), color = floatingColor(), shadowElevation = 3.dp, modifier = Modifier.padding(start = 12.dp)) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(Icons.Outlined.BatteryFull, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text("$pct%", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        }
+    val t = LocalTokens.current
+    Row(
+        Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White).padding(horizontal = 11.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(Icons.Outlined.BatteryFull, contentDescription = null, tint = if (pct <= 20) t.coralDark else Color(0xFF0E8A5D), modifier = Modifier.size(14.dp))
+        Text("$pct%", style = MaterialTheme.typography.labelMedium, color = if (pct <= 20) t.coralDark else Color(0xFF0E8A5D))
     }
 }

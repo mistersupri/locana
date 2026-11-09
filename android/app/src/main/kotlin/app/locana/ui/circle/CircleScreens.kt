@@ -1,9 +1,40 @@
 package app.locana.ui.circle
 
+import app.locana.ui.theme.cardBrush
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import app.locana.ui.components.TagPill
+import app.locana.ui.components.Segmented
+import app.locana.ui.components.ListRowCard
+import app.locana.ui.components.ChunkyStyle
+import app.locana.ui.components.ChunkyButton
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.ConfirmationNumber
+import app.locana.ui.theme.LocalTokens
+import app.locana.ui.components.LocanaCard
+import app.locana.ui.components.IconTile
+import app.locana.ui.components.Illustration
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.outlined.TrackChanges
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,7 +68,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import app.locana.ui.components.LocanaSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -116,6 +147,7 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
     val list by vm.list.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     var switcher by remember { mutableStateOf(false) }
+    val tk = LocalTokens.current
 
     if (list != null && list!!.value.isEmpty()) {
         Column(Modifier.fillMaxSize().statusBarsPadding(), verticalArrangement = Arrangement.Center) {
@@ -125,52 +157,54 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp)) {
         item {
             // Focal point: who is in this circle and who is sharing with you right now.
-            val hero = LocalHero.current
             val detail = (state as? UiState.Data)?.value?.detail
-            HeroPanel {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) {
-                        Row(Modifier.clickable(role = Role.Button, onClickLabel = "Switch circle") { switcher = true }, verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                list?.value?.firstOrNull { it.id == selected }?.name ?: "Circle",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = hero.text,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = hero.text)
+            HeroPanel(brush = cardBrush(Color(0xFFF1EAFF), Color.White)) {
+                Box {
+                    Illustration("friends", Modifier.align(Alignment.TopEnd).padding(end = 44.dp), size = 84.dp)
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box {
+                                Row(Modifier.clickable(role = Role.Button, onClickLabel = "Switch circle") { switcher = true }, verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        list?.value?.firstOrNull { it.id == selected }?.name ?: "Circle",
+                                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                                }
+                                DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
+                                    list?.value.orEmpty().forEach { c -> DropdownMenuItem(text = { Text(c.name) }, onClick = { switcher = false; vm.select(c.id) }) }
+                                    HorizontalDivider()
+                                    DropdownMenuItem(text = { Text("New circle") }, onClick = { switcher = false; nav.navigate(Routes.CIRCLE_CREATE) })
+                                    DropdownMenuItem(text = { Text("Join with a code") }, onClick = { switcher = false; nav.navigate(Routes.circleJoin()) })
+                                }
+                            }
+                            Spacer(Modifier.weight(1f))
+                            selected?.let { id -> IconButton(onClick = { nav.navigate(Routes.circleSettings(id)) }) { Icon(Icons.Outlined.Settings, contentDescription = "Circle settings") } }
                         }
-                        DropdownMenu(expanded = switcher, onDismissRequest = { switcher = false }) {
-                            list?.value.orEmpty().forEach { c -> DropdownMenuItem(text = { Text(c.name) }, onClick = { switcher = false; vm.select(c.id) }) }
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text("New circle") }, onClick = { switcher = false; nav.navigate(Routes.CIRCLE_CREATE) })
-                            DropdownMenuItem(text = { Text("Join with a code") }, onClick = { switcher = false; nav.navigate(Routes.circleJoin()) })
+                        if (detail != null) {
+                            val sharing = detail.members.count { it.sharingWithMe == true }
+                            val count = detail.members.size
+                            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                AvatarStack(detail.members.take(4).map { it.displayName to it.avatarKey }, size = 28.dp, ring = Color.White)
+                                Text(
+                                    (if (count == 1) "1 member" else "$count members") + " · " + (if (sharing == 0) "no one sharing yet" else "$sharing sharing with you"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = tk.ink2,
+                                )
+                            }
                         }
-                    }
-                    selected?.let { id -> IconButton(onClick = { nav.navigate(Routes.circleSettings(id)) }) { Icon(Icons.Outlined.Settings, contentDescription = "Circle settings", tint = hero.text) } }
-                }
-                if (detail != null) {
-                    val sharing = detail.members.count { it.sharingWithMe == true }
-                    val count = detail.members.size
-                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        AvatarStack(detail.members.map { it.displayName to it.avatarKey })
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            (if (count == 1) "1 member" else "$count members") + " · " +
-                                (if (sharing == 0) "nobody sharing with you" else "$sharing sharing with you"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = hero.muted,
-                        )
-                    }
-                }
-                selected?.let { id ->
-                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HeroPrimaryButton("Invite", { nav.navigate(Routes.circleInvite(id)) })
-                        HeroSecondaryButton("Members", { nav.navigate(Routes.circleMembers(id)) })
-                        HeroSecondaryButton("Places", { nav.navigate(Routes.places(id)) })
+                        selected?.let { id ->
+                            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                HeroPrimaryButton("Invite", { nav.navigate(Routes.circleInvite(id)) })
+                                HeroSecondaryButton("Members", { nav.navigate(Routes.circleMembers(id)) })
+                                HeroSecondaryButton("Places", { nav.navigate(Routes.places(id)) })
+                            }
+                        }
                     }
                 }
             }
@@ -185,37 +219,40 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
                     SectionHeader("Who's here")
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         h.detail.members.forEach { m ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-                                Avatar(m.displayName, m.avatarKey, size = 48.dp, framed = m.avatarFrameKey != null, userId = m.userId, photoVersion = m.avatarPhotoVersion)
-                                Text(if (m.userId == vm.myId) "You" else m.displayName, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    when (m.sharingWithMe) { true -> "sharing"; false -> "not sharing"; null -> "you" },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
+                                Avatar(m.displayName, m.avatarKey, size = 52.dp, framed = m.avatarFrameKey != null, userId = m.userId, photoVersion = m.avatarPhotoVersion)
+                                Text(if (m.userId == vm.myId) "You" else m.displayName, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                             }
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
+                            Box(
+                                Modifier.size(52.dp).clip(CircleShape).border(2.dp, tk.ink3, CircleShape).clickable(role = Role.Button, onClickLabel = "Invite someone") { nav.navigate(Routes.circleInvite(h.detail.id)) },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Filled.Add, contentDescription = null, tint = tk.ink2) }
+                            Text("Add", style = MaterialTheme.typography.labelMedium, color = tk.ink2, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
-                item { SectionHeader("Challenges", actionLabel = "New", onAction = { nav.navigate(Routes.challengeNew(h.detail.id)) }) }
-                if (h.challenges.isEmpty()) {
-                    item { Text("Set a shared goal, like 30 new tiles this week. Everyone's validated activity counts.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        InfoCard(
+                            Modifier.weight(1f), Icons.Outlined.TrackChanges, tk.yellowSoft, tk.yellowDark, "Challenges",
+                            "Set a shared goal, like 20 new tiles this week.", "New", { nav.navigate(Routes.challengeNew(h.detail.id)) },
+                        )
+                        InfoCard(
+                            Modifier.weight(1f), Icons.Outlined.Map, tk.mintSoft, Color(0xFF0E8A5D), "Exploring together",
+                            h.exploration?.let { "${it.totalTiles} tiles revealed by members who share stats." } ?: "Tiles revealed by members who share stats.",
+                            "Leaderboard", { nav.navigate(Routes.leaderboard("circle")) },
+                        )
+                    }
                 }
                 items(h.challenges.take(3), key = { it.id }) { c ->
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    LocanaCard(Modifier.fillMaxWidth().padding(top = 10.dp), shape = RoundedCornerShape(20.dp), shadow = 2.dp) {
                         Column(Modifier.padding(14.dp)) {
-                            Row { Text(c.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f)); StatusChip(if (c.status == "ACTIVE") endsIn(c.endsAt) else c.status.lowercase()) }
+                            Row { Text(c.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.weight(1f)); StatusChip(if (c.status == "ACTIVE") endsIn(c.endsAt) else c.status.lowercase()) }
                             QuestProgressTrack(c.progress, c.target, c.metric.lowercase(), Modifier.padding(top = 8.dp))
                             Text("${c.progress} of ${c.target} ${c.metric.lowercase()}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
                         }
-                    }
-                }
-                h.exploration?.let { e ->
-                    item {
-                        SectionHeader("Exploring together")
-                        Text("${e.totalTiles} tiles revealed by members who share their stats", style = MaterialTheme.typography.bodyMedium)
-                        if (e.hiddenMembers > 0) Text("${e.hiddenMembers} member(s) keep their stats private.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = { nav.navigate(Routes.leaderboard("circle")) }) { Text("Circle leaderboard") }
                     }
                 }
                 item { SectionHeader("Activity") }
@@ -228,26 +265,43 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun FeedRow(f: FeedItemDto, onReact: (String) -> Unit) {
-    Column(Modifier.padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(f.actor.displayName, f.actor.avatarKey, size = 36.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(feedText(f), style = MaterialTheme.typography.bodyMedium)
-                Text(Freshness.ageLabel(Instant.parse(f.createdAt).toEpochMilli(), System.currentTimeMillis()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+private fun InfoCard(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, tile: Color, tint: Color, title: String, body: String, action: String, onAction: () -> Unit) {
+    LocanaCard(modifier, shape = RoundedCornerShape(20.dp), shadow = 2.dp) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            IconTile(icon, tile, tint, size = 38.dp)
+            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 4.dp))
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("$action →", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable(role = Role.Button, onClick = onAction).padding(vertical = 4.dp))
         }
-        Row(Modifier.padding(start = 40.dp)) {
-            reactionGlyph.forEach { (key, glyph) ->
-                val count = f.reactions.firstOrNull { it.emoji == key }?.count ?: 0
-                val mine = f.myReaction == key
-                TextButton(onClick = { onReact(key) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                    Text(if (count > 0) "$glyph $count" else glyph, style = if (mine) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun FeedRow(f: FeedItemDto, onReact: (String) -> Unit) {
+    LocanaCard(Modifier.fillMaxWidth().padding(top = 8.dp), shape = RoundedCornerShape(20.dp), shadow = 2.dp) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(f.actor.displayName, f.actor.avatarKey, size = 36.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(feedText(f), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
+                    Text(Freshness.ageLabel(Instant.parse(f.createdAt).toEpochMilli(), System.currentTimeMillis()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                reactionGlyph.forEach { (key, glyph) ->
+                    val count = f.reactions.firstOrNull { it.emoji == key }?.count ?: 0
+                    val mine = f.myReaction == key
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (mine) MaterialTheme.colorScheme.primaryContainer else LocalTokens.current.yellowSoft)
+                            .clickable(role = Role.Button, onClickLabel = "React $key") { onReact(key) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) { Text(if (count > 0) "$glyph $count" else glyph, style = MaterialTheme.typography.labelLarge) }
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(top = 4.dp))
     }
 }
 
@@ -302,29 +356,28 @@ fun InviteScreen(nav: NavController, vm: InviteViewModel = hiltViewModel()) {
         LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(16.dp)) {
             item {
                 created?.code?.let { code ->
-                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("New code", style = MaterialTheme.typography.labelLarge)
-                            SelectionContainer { Text(code, style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace)) }
-                            Text("Works ${endsIn(created!!.expiresAt)}, for up to ${created!!.maxUses} people. You won't see this code again after leaving.", style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(12.dp))
-                            PrimaryButton("Share code", {
+                    Box(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(Color(0xFF6B3BF5), Color(0xFF9A6BFF)))).padding(20.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("NEW CODE", style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp), color = Color.White.copy(alpha = 0.8f))
+                            SelectionContainer { Text(code, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 30.sp), color = Color.White) }
+                            Text("Works ${endsIn(created!!.expiresAt)}, for up to ${created!!.maxUses} people. You won't see this code again after leaving.", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.padding(end = 70.dp))
+                            Spacer(Modifier.height(10.dp))
+                            ChunkyButton("Share code", {
                                 val text = "Join my circle on Locana with code $code\n${created!!.deepLink}"
                                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share invitation"))
-                            })
+                            }, Modifier.widthIn(min = 160.dp), style = ChunkyStyle.Yellow, icon = Icons.Outlined.Share, compact = true)
                         }
+                        Illustration("mailbox", Modifier.align(Alignment.TopEnd), size = 64.dp)
                     }
                     Spacer(Modifier.height(16.dp))
                 }
                 Text("Make a code", style = MaterialTheme.typography.titleLarge)
-                Text("Valid for", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(2 to "2 hours", 48 to "2 days", 168 to "7 days").forEach { (h, l) -> FilterChip(selected = hours == h, onClick = { hours = h }, label = { Text(l) }) }
-                }
-                Text("People who can use it", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1, 5, 20).forEach { u -> FilterChip(selected = uses == u, onClick = { uses = u }, label = { Text("$u") }) }
-                }
+                Text("Valid for", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp, start = 2.dp))
+                Segmented(listOf(2 to "2 hours", 48 to "2 days", 168 to "7 days"), hours, { hours = it })
+                Text("People who can use it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp, start = 2.dp))
+                Segmented(listOf(1 to "1", 5 to "5", 20 to "20"), uses, { uses = it })
                 FormError(error)
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton("Create code", { vm.create(hours, uses) }, Modifier.fillMaxWidth())
@@ -336,10 +389,12 @@ fun InviteScreen(nav: NavController, vm: InviteViewModel = hiltViewModel()) {
                 is UiState.Data -> {
                     if (s.value.isEmpty()) item { Text("No codes yet.", style = MaterialTheme.typography.bodyMedium) }
                     items(s.value, key = { it.id }) { inv ->
-                        ListItem(
-                            headlineContent = { Text("Code ending …${inv.codeHint}") },
-                            supportingContent = { Text("${inv.uses}/${inv.maxUses} used · ${if (inv.status == "ACTIVE") endsIn(inv.expiresAt) else inv.status.lowercase().replace('_', ' ')}") },
-                            trailingContent = { if (inv.status == "ACTIVE") TextButton(onClick = { vm.revoke(inv.id) }) { Text("Revoke") } },
+                        ListRowCard(
+                            title = "Code ending …${inv.codeHint}",
+                            subtitle = "${inv.uses}/${inv.maxUses} used · ${if (inv.status == "ACTIVE") endsIn(inv.expiresAt) else inv.status.lowercase().replace('_', ' ')}",
+                            icon = Icons.Outlined.ConfirmationNumber,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            trailing = { if (inv.status == "ACTIVE") Text("Revoke", style = MaterialTheme.typography.labelLarge, color = LocalTokens.current.coralDark, modifier = Modifier.clickable(role = Role.Button) { vm.revoke(inv.id) }.padding(8.dp)) },
                         )
                     }
                 }
@@ -365,20 +420,19 @@ fun MembersScreen(nav: NavController, vm: MembersViewModel = hiltViewModel()) {
                     items(d.members, key = { it.userId }) { m ->
                         var menu by remember { mutableStateOf(false) }
                         val isMe = m.userId == vm.myId
-                        ListItem(
-                            leadingContent = { Avatar(m.displayName, m.avatarKey, size = 40.dp, userId = m.userId, photoVersion = m.avatarPhotoVersion) },
-                            headlineContent = { Text(m.displayName + if (isMe) " (you)" else "") },
-                            supportingContent = {
-                                Text(
-                                    listOfNotNull(
-                                        "@${m.username}",
-                                        m.role.lowercase(),
-                                        "can't see you".takeIf { m.userId in d.hiddenFromViewerIds },
-                                        "blocked".takeIf { m.blockedByMe },
-                                    ).joinToString(" · "),
-                                )
-                            },
-                            trailingContent = {
+                        LocanaCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp), shape = RoundedCornerShape(20.dp), shadow = 2.dp) {
+                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(m.displayName, m.avatarKey, size = 44.dp, userId = m.userId, photoVersion = m.avatarPhotoVersion)
+                                Spacer(Modifier.width(12.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(m.displayName + if (isMe) " (you)" else "", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold))
+                                    Text(
+                                        listOfNotNull("@${m.username}", "can't see you".takeIf { m.userId in d.hiddenFromViewerIds }, "blocked".takeIf { m.blockedByMe }).joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (m.role != "MEMBER") TagPill(m.role.lowercase().replaceFirstChar { it.uppercase() }, LocalTokens.current.yellowSoft, LocalTokens.current.onYellowSoft, icon = Icons.Outlined.WorkspacePremium)
                                 if (!isMe) Box {
                                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Actions for ${m.displayName}") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -395,9 +449,11 @@ fun MembersScreen(nav: NavController, vm: MembersViewModel = hiltViewModel()) {
                                         DropdownMenuItem(text = { Text("Report") }, onClick = { menu = false; reporting = m })
                                     }
                                 }
-                            },
-                        )
-                        HorizontalDivider()
+                            }
+                        }
+                    }
+                    if (d.members.size == 1) item {
+                        EmptyState("It's just you so far", "Circles are more fun together. Invite family or friends with a one-time code.", actionLabel = "Invite people", onAction = { nav.navigate(Routes.circleInvite(d.id)) }, illustration = "friends")
                     }
                 }
             }
@@ -459,7 +515,7 @@ fun CircleSettingsScreen(nav: NavController, vm: CircleSettingsViewModel = hiltV
                 ListItem(
                     headlineContent = { Text("Mute this circle") },
                     supportingContent = { Text("No notifications from it. You still see the map and feed.") },
-                    trailingContent = { Switch(checked = d.muted, onCheckedChange = vm::mute) },
+                    trailingContent = { LocanaSwitch(checked = d.muted, onCheckedChange = vm::mute) },
                     modifier = Modifier.clickable(role = Role.Switch) { vm.mute(!d.muted) },
                 )
                 FormError(error)
@@ -504,23 +560,38 @@ fun PlacesScreen(nav: NavController, vm: PlacesViewModel = hiltViewModel()) {
                 UiState.Loading -> LoadingState()
                 is UiState.Error -> ErrorState(s.message, { vm.load() })
                 is UiState.Data -> if (s.value.isEmpty()) {
-                    EmptyState(
-                        "No saved places",
-                        "Save home, school or work to get an alert when someone who shares with you arrives or leaves.",
-                        actionLabel = "Add a place",
-                        onAction = { nav.navigate(Routes.placeEdit(vm.circleId)) },
-                    )
-                } else {
-                    LazyColumn {
-                        items(s.value, key = { it.id }) { p ->
-                            ListItem(
-                                headlineContent = { Text(p.name) },
-                                supportingContent = { Text("${p.type.lowercase().replaceFirstChar { it.uppercase() }} · ${p.radiusM} m · " + listOfNotNull("arrivals".takeIf { p.notifyArrive }, "departures".takeIf { p.notifyLeave }).joinToString(" and ").ifEmpty { "no alerts" }) },
-                                modifier = Modifier.clickable(role = Role.Button) { nav.navigate(Routes.placeEdit(vm.circleId, p.id)) },
-                            )
-                            HorizontalDivider()
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        EmptyState(
+                            "No saved places",
+                            "Save home, school or work to get an alert when someone who shares with you arrives or leaves.",
+                            actionLabel = "Add a place",
+                            onAction = { nav.navigate(Routes.placeEdit(vm.circleId)) },
+                            illustration = "house",
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TagPill("Home", LocalTokens.current.coralSoft, LocalTokens.current.coralDark, icon = Icons.Outlined.Home)
+                            TagPill("School", LocalTokens.current.skySoft, Color(0xFF1E6FB0), icon = Icons.Outlined.School)
+                            TagPill("Work", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary, icon = Icons.Outlined.Work)
                         }
-                        item { PrimaryButton("Add a place", { nav.navigate(Routes.placeEdit(vm.circleId)) }, Modifier.padding(16.dp)) }
+                    }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(s.value, key = { it.id }) { p ->
+                            val tk = LocalTokens.current
+                            val (icon, tile, tint) = when (p.type) {
+                                "HOME" -> Triple(Icons.Outlined.Home, tk.coralSoft, tk.coralDark)
+                                "SCHOOL" -> Triple(Icons.Outlined.School, tk.skySoft, Color(0xFF1E6FB0))
+                                "WORK" -> Triple(Icons.Outlined.Work, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+                                else -> Triple(Icons.Outlined.Place, tk.mintSoft, Color(0xFF0E8A5D))
+                            }
+                            ListRowCard(
+                                title = p.name,
+                                subtitle = "${p.type.lowercase().replaceFirstChar { it.uppercase() }} · ${p.radiusM} m · " + listOfNotNull("arrivals".takeIf { p.notifyArrive }, "departures".takeIf { p.notifyLeave }).joinToString(" and ").ifEmpty { "no alerts" },
+                                icon = icon, tileColor = tile, tileTint = tint,
+                                onClick = { nav.navigate(Routes.placeEdit(vm.circleId, p.id)) },
+                            )
+                        }
+                        item { PrimaryButton("Add a place", { nav.navigate(Routes.placeEdit(vm.circleId)) }, Modifier.fillMaxWidth().padding(top = 8.dp)) }
                     }
                 }
             }
@@ -569,8 +640,8 @@ fun PlaceEditScreen(nav: NavController, vm: PlaceEditViewModel = hiltViewModel()
                     Text("Alert radius: ${f.radiusM} m", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
                     Slider(value = f.radiusM.toFloat(), onValueChange = { v -> vm.edit { it.copy(radiusM = (v / 25).toInt() * 25) } }, valueRange = 75f..1000f)
                     Text("Phone GPS can be off by 20-100 m, so small circles cause missed or false alerts.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    ListItem(headlineContent = { Text("Alert on arrival") }, trailingContent = { Switch(f.notifyArrive, { v -> vm.edit { it.copy(notifyArrive = v) } }) })
-                    ListItem(headlineContent = { Text("Alert on departure") }, trailingContent = { Switch(f.notifyLeave, { v -> vm.edit { it.copy(notifyLeave = v) } }) })
+                    ListItem(headlineContent = { Text("Alert on arrival") }, trailingContent = { LocanaSwitch(f.notifyArrive, { v -> vm.edit { it.copy(notifyArrive = v) } }) })
+                    ListItem(headlineContent = { Text("Alert on departure") }, trailingContent = { LocanaSwitch(f.notifyLeave, { v -> vm.edit { it.copy(notifyLeave = v) } }) })
                     Text(
                         "Alerts go to circle members who can currently see the person arriving. Nobody gets alerts about someone who isn't sharing with them.",
                         style = MaterialTheme.typography.bodySmall,

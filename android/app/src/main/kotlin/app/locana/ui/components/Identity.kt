@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -71,16 +72,16 @@ fun Modifier.pressScale(source: MutableInteractionSource): Modifier = composed {
  * the large radius sets it apart from ordinary 14 dp cards.
  */
 @Composable
-fun HeroPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun HeroPanel(modifier: Modifier = Modifier, brush: androidx.compose.ui.graphics.Brush? = null, content: @Composable ColumnScope.() -> Unit) {
     val hero = LocalHero.current
     Surface(
-        color = hero.background,
+        color = if (brush == null) hero.background else Color.Transparent,
         contentColor = hero.text,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(28.dp),
         shadowElevation = hero.shadow,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(20.dp), content = content)
+        Column((if (brush != null) Modifier.background(brush) else Modifier).padding(20.dp), content = content)
     }
 }
 
@@ -205,23 +206,10 @@ fun RollingNumber(value: Int, style: TextStyle, color: Color, prefix: String = "
 /** Buttons for use on a HeroPanel: teal fill for the main action, outlined for the rest. */
 @Composable
 fun HeroPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val hero = LocalHero.current
-    androidx.compose.material3.Button(
-        onClick = onClick,
-        shape = ButtonShape,
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = hero.accent, contentColor = hero.onAccent),
-        modifier = modifier.heightIn(min = 48.dp),
-    ) { Text(text) }
+    ChunkyButton(text, onClick, modifier, ChunkyStyle.Primary, compact = true)
 }
 
 @Composable
 fun HeroSecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val hero = LocalHero.current
-    androidx.compose.material3.OutlinedButton(
-        onClick = onClick,
-        shape = ButtonShape,
-        border = androidx.compose.foundation.BorderStroke(1.dp, hero.muted),
-        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = hero.text),
-        modifier = modifier.heightIn(min = 48.dp),
-    ) { Text(text) }
+    ChunkyButton(text, onClick, modifier, ChunkyStyle.Secondary, compact = true)
 }

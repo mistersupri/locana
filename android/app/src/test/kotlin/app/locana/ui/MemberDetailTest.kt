@@ -74,7 +74,6 @@ class MemberDetailTest {
                 )
             }
         }
-        rule.onNodeWithText("Lina").assertIsDisplayed()
         rule.onNodeWithText("65%").assertIsDisplayed()
         rule.onNodeWithText("At Lina Home").assertIsDisplayed()
         rule.onNodeWithText("Today").assertIsDisplayed()

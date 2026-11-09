@@ -1,6 +1,12 @@
 package app.locana.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,29 +37,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.locana.domain.Freshness
 
-/** Buttons use a 12 dp radius: clearly tappable, not pill-shaped. Minimum height 48 dp. */
-val ButtonShape = RoundedCornerShape(12.dp)
+/** Buttons are the mockup's chunky 18 dp ones: a solid edge underneath that the face sinks into. Minimum height 54 dp. */
+val ButtonShape = RoundedCornerShape(18.dp)
 
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, loading: Boolean = false) {
-    Button(
-        onClick = onClick,
-        enabled = enabled && !loading,
-        shape = ButtonShape,
-        modifier = modifier.heightIn(min = 48.dp),
-        contentPadding = ButtonDefaults.ContentPadding,
-    ) {
-        if (loading) {
-            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-            Spacer(Modifier.size(10.dp))
-        }
-        Text(text)
-    }
+    ChunkyButton(text, onClick, modifier, ChunkyStyle.Primary, enabled, loading)
 }
 
 @Composable
 fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    OutlinedButton(onClick = onClick, enabled = enabled, shape = ButtonShape, modifier = modifier.heightIn(min = 48.dp)) { Text(text) }
+    ChunkyButton(text, onClick, modifier, ChunkyStyle.Secondary, enabled)
 }
 
 @Composable
@@ -82,14 +76,20 @@ fun ErrorState(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Mod
 }
 
 @Composable
-fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null, illustration: String? = null) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (illustration != null) {
+            Box(Modifier.size(170.dp).clip(androidx.compose.foundation.shape.CircleShape).background(app.locana.ui.theme.LocalTokens.current.yellowSoft.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
+                Illustration(illustration, size = 120.dp)
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+        Text(title, style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp), textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            PrimaryButton(actionLabel, onAction)
+            PrimaryButton(actionLabel, onAction, Modifier.widthIn(min = 200.dp))
         }
     }
 }
@@ -115,6 +115,9 @@ fun CachedNotice(cachedAtMs: Long, onRetry: () -> Unit, modifier: Modifier = Mod
 fun SectionHeader(title: String, modifier: Modifier = Modifier, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        if (actionLabel != null && onAction != null) TextButton(onClick = onAction) { Text(actionLabel) }
+        if (actionLabel != null && onAction != null) {
+            Text(actionLabel, style = MaterialTheme.typography.labelLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold), color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onAction).padding(8.dp))
+        }
     }
 }

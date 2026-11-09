@@ -96,7 +96,7 @@ class AppFlowTest {
     private fun SemanticsNodeInteraction.scrollIfNeeded(): SemanticsNodeInteraction = apply { runCatching { performScrollTo() } }
 
     private fun type(label: String, value: String) {
-        compose.onNode(hasText(label) and hasSetTextAction()).scrollIfNeeded().performTextInput(value)
+        compose.onNode((hasText(label) or hasContentDescription(label)) and hasSetTextAction()).scrollIfNeeded().performTextInput(value)
     }
 
     private fun tab(name: String) {
@@ -159,7 +159,7 @@ class AppFlowTest {
 
     private fun flow() {
         // Onboarding and registration
-        waitFor("Nothing is shared until you start it")
+        waitFor("You stay in control")
         shot("01-onboarding")
         click("Create an account")
         waitFor("Create your account")
@@ -184,7 +184,7 @@ class AppFlowTest {
         waitFor("Optional: tell driving from walking")
         shot("04b-permission-motion")
         click("Not now")
-        waitFor("You're set")
+        waitFor("You're set", substring = true)
         shot("05-permission-summary")
         click("Go to the map")
 
@@ -197,7 +197,7 @@ class AppFlowTest {
         click("Create circle")
         waitFor("Make a code")
         click("Create code")
-        waitFor("New code")
+        waitFor("NEW CODE")
         shot("07-invite-code")
         back()
 
@@ -273,7 +273,7 @@ class AppFlowTest {
         click("Privacy")
         waitFor("Keep my location history")
         click("Keep my location history")
-        waitFor("Keep for 7 days")
+        waitFor("7 days")
         shot("21-privacy")
         back()
         click("Dark")

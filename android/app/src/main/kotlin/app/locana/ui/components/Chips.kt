@@ -13,16 +13,15 @@ import app.locana.ui.theme.LocalReward
 
 /** Small status label. Pill shape is reserved for these: they are labels, not buttons. */
 @Composable
-fun StatusChip(text: String, modifier: Modifier = Modifier, container: Color = MaterialTheme.colorScheme.surfaceContainerHighest, content: Color = MaterialTheme.colorScheme.onSurface) {
+fun StatusChip(text: String, modifier: Modifier = Modifier, container: Color = MaterialTheme.colorScheme.primaryContainer, content: Color = MaterialTheme.colorScheme.primary) {
     Surface(color = container, contentColor = content, shape = RoundedCornerShape(50), modifier = modifier) {
-        Text(text, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp))
     }
 }
 
 @Composable
 fun XpChip(xp: Int, modifier: Modifier = Modifier) {
-    val r = LocalReward.current
-    StatusChip("+$xp XP", modifier, container = r.rewardContainer, content = r.onRewardContainer)
+    XpBadge("+$xp XP", modifier)
 }
 
 fun rarityLabel(r: String) = r.lowercase().replaceFirstChar { it.uppercase() }

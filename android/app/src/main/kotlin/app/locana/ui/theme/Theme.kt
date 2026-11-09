@@ -15,19 +15,20 @@ import androidx.compose.ui.unit.dp
 import app.locana.data.prefs.ThemeMode
 
 /*
- * Shapes (why): radius encodes hierarchy. Small 8 dp for chips and inputs, medium 14 dp for
- * cards, large 24 dp for sheets. Nothing is pill-shaped except status chips, which are labels.
+ * Shapes (why): from the mockup. Chunky buttons are 18 dp, cards 20 to 24 dp, sheets 28 dp, chips and
+ * badges are pills.
  */
 val LocanaShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(14.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(20.dp),
     large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
 
 val LocalReward = staticCompositionLocalOf { DarkReward }
 val LocalHero = staticCompositionLocalOf { LightHero }
+val LocalTokens = staticCompositionLocalOf { LightTokens }
 val LocalReducedMotion = staticCompositionLocalOf { false }
 val LocalDarkTheme = staticCompositionLocalOf { true }
 
@@ -46,6 +47,7 @@ fun LocanaTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> U
     CompositionLocalProvider(
         LocalReward provides if (dark) DarkReward else LightReward,
         LocalHero provides if (dark) DarkHero else LightHero,
+        LocalTokens provides if (dark) DarkTokens else LightTokens,
         LocalReducedMotion provides reduced,
         LocalDarkTheme provides dark,
     ) {
@@ -59,6 +61,8 @@ fun LocanaTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> U
 }
 
 object LocanaThemeExt {
+    val tokens: Tokens
+        @Composable @ReadOnlyComposable get() = LocalTokens.current
     val reward: RewardColors
         @Composable @ReadOnlyComposable get() = LocalReward.current
 }

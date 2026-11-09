@@ -1,6 +1,17 @@
 package app.locana.ui.timeline
 
 import androidx.compose.foundation.layout.Arrangement
+import app.locana.ui.theme.LocalTokens
+import app.locana.ui.components.TagPill
+import app.locana.ui.components.LocanaCard
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.HourglassBottom
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,45 +85,53 @@ internal fun dayLabel(d: LocalDate): String = when (d) {
     else -> dayFmt.format(d)
 }
 
+/** Day switcher: two small square buttons around the day name, on a white bar. */
 @Composable
 internal fun DayBar(day: LocalDate, onPrev: () -> Unit, onNext: () -> Unit, canNext: Boolean) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(shape = ControlShape, color = floatingColor(), shadowElevation = 4.dp, modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPrev) { Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous day") }
-                Text(dayLabel(day), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                IconButton(onClick = onNext, enabled = canNext) { Icon(Icons.Filled.ChevronRight, contentDescription = "Next day") }
-            }
-        }
+    val t = LocalTokens.current
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(48.dp).clip(RoundedCornerShape(16.dp)).background(t.card).padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DayButton(Icons.Filled.ChevronLeft, "Previous day", true, onPrev)
+        Text(dayLabel(day), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        DayButton(Icons.Filled.ChevronRight, "Next day", canNext, onNext)
     }
 }
 
 @Composable
-private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(shape = RoundedCornerShape(24.dp), color = floatingColor(), shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) { content() }
+private fun DayButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, contentDescription = label, tint = if (enabled) MaterialTheme.colorScheme.onSurface else LocalTokens.current.ink3, modifier = Modifier.size(18.dp)) }
 }
 
 @Composable
-private fun Emoji(text: String, size: Int = 36) {
-    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(size.dp + 12.dp)) {
-        Box(contentAlignment = Alignment.Center) { Text(text, fontSize = (size * 0.6f).sp) }
-    }
+private fun TimelineCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    LocanaCard(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), shadow = 3.dp) { content() }
 }
 
-private val Int.sp get() = androidx.compose.ui.unit.TextUnit(this.toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
-private val Float.sp get() = androidx.compose.ui.unit.TextUnit(this, androidx.compose.ui.unit.TextUnitType.Sp)
+/** A pill with an optional leading icon and its own tint, like "Stayed 7 hrs, 15 mins". */
+@Composable
+private fun StatPill(text: String, container: Color, content: Color, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    TagPill(text, container, content, icon = icon)
+}
 
 @Composable
 internal fun StayCard(s: TimelineItem.Stay) {
-    Card(Modifier.semantics { contentDescription = "${s.title}, ${s.range}, ${s.duration}" }) {
-        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Emoji(s.emoji)
-            Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                Text(s.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(s.range, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("Stayed ${s.duration}")
-                    if (s.ongoing) Chip("Happening now", highlight = true)
+    val t = LocalTokens.current
+    TimelineCard(Modifier.semantics { contentDescription = "${s.title}, ${s.range}, ${s.duration}" }) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(t.coralSoft), contentAlignment = Alignment.Center) {
+                Text(s.emoji, fontSize = 30.sp)
+            }
+            Column(Modifier.padding(start = 14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(s.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+                Text(s.range, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatPill("Stayed ${s.duration}", t.coralSoft, t.coralDark, Icons.Outlined.HourglassBottom)
+                    if (s.ongoing) StatPill("Happening now", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -121,37 +140,24 @@ internal fun StayCard(s: TimelineItem.Stay) {
 
 @Composable
 internal fun TripCard(t: TimelineItem.Trip) {
-    Card(Modifier.semantics { contentDescription = "${t.title}, ${t.range}, ${t.distance}, ${t.duration}" }) {
-        Column {
-            RouteMap(t.path)
-            Column(Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(t.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                        Text("${t.range} · ${t.distance}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Emoji(t.emoji, 40)
+    val tk = LocalTokens.current
+    TimelineCard(Modifier.semantics { contentDescription = "${t.title}, ${t.range}, ${t.distance}, ${t.duration}" }) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.clip(RoundedCornerShape(16.dp))) { RouteMap(t.path) }
+            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(t.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+                    Text("${t.range} · ${t.distance}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Chip("Took ${t.duration}")
-                    if (t.ongoing) Chip("Happening now", highlight = true)
-                    Chip("avg ${t.avgSpeed}")
-                    if (t.driving) Chip("top ${t.maxSpeed}")
-                }
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tk.skySoft), contentAlignment = Alignment.Center) { Text(t.emoji, fontSize = 28.sp) }
+            }
+            Row(Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatPill("Took ${t.duration}", tk.skySoft, Color(0xFF1E6FB0), Icons.Outlined.Timer)
+                StatPill("avg ${t.avgSpeed}", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)
+                if (t.driving) StatPill("top ${t.maxSpeed}", tk.yellowSoft, tk.onYellowSoft, Icons.Outlined.Bolt)
+                if (t.ongoing) StatPill("Now", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
             }
         }
-    }
-}
-
-@Composable
-private fun Chip(text: String, highlight: Boolean = false) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
     }
 }
 

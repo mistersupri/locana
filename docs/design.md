@@ -79,3 +79,14 @@ What a pin says now comes from the phone's activity recognition when allowed, th
 ### Update: places around you, following a person, steadier layers
 
 Restaurants, shops and buildings drawn by Google are tappable and open a card (name, kind, distance, rating, open now, address, Directions, Open in Maps). Four category chips (Food, Cafés, Shops, Sights) list places around the middle of the map with emoji markers; tapping a category again clears it. A focused person is followed: the map is padded by the sheet, so their pin stays centred in the visible strip while they move, and their day reloads every 15 seconds. Explored tiles and landmarks are cached as the map moves and requested with a margin around the screen, so panning back no longer waits for the network. Exploration now starts on for new accounts (tiles stay private), and 15 more Greater Jakarta landmarks give players outside the centre something to visit.
+
+## Design system: the owner's mockup (locana.pen)
+
+The whole app was redone to follow `locana.pen`, the owner's Pencil mockup of every screen.
+
+- **Colour**: cream page `#FBF6EE`, white cards, one violet `#6B3BF5` for everything you can act on, yellow for XP and rewards, mint for "good / live", coral for danger and alerts, sky for information. Tokens live in `ui/theme/Color.kt` (`LightColors`, `Tokens`). The dark theme keeps the hues on deep violet surfaces.
+- **Type**: Bricolage Grotesque ExtraBold for headings and numbers, Plus Jakarta Sans for everything else (both SIL OFL, bundled in `res/font`, licences in `res/raw`).
+- **Shape**: chunky buttons 18 dp with a solid 4 dp edge that the face sinks into when pressed (`ChunkyButton`), cards 20 to 28 dp with a soft shadow (`LocanaCard`), pill chips, 42 dp white square back buttons, a floating capsule tab bar.
+- **Components** (`ui/components/Chunky.kt`): `ChunkyButton`, `SquareIconButton`, `LocanaTopBar`, `LocanaCard`, `LocanaChip`, `LocanaSwitch`, `Segmented`, `XpBadge`, `TagPill`, `ListRowCard`, `Illustration`.
+- **Illustrations**: the mockup's 3D images were not part of the file, so `Illustration(name)` shows an emoji until a drawable named `ill_<name>` exists in `res/drawable` (mascot, city, house, office, monas, trophy, shield, car, mailbox, friends, phone, sneaker, compass, chest). Drop the PNG or WebP files in and they replace the emoji with no code change.
+- **Where the app differs from the mockup**: the mockup's copy "Nothing is shared until you start it" no longer matches how sharing works (it is automatic inside a circle), so the onboarding card says "You stay in control" instead; the map's bottom sheet has no People/Places chips, because places live under Circle.

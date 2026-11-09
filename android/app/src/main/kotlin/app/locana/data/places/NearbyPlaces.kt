@@ -39,7 +39,8 @@ enum class NearbyKind(val label: String, val emoji: String, val types: List<Stri
     FOOD("Food", "🍴", listOf("restaurant")),
     CAFE("Cafés", "☕", listOf("cafe", "coffee_shop")),
     SHOPS("Shops", "🛍️", listOf("shopping_mall", "supermarket", "convenience_store")),
-    SIGHTS("Sights", "🏛️", listOf("tourist_attraction", "museum", "park", "place_of_worship")),
+    SIGHTS("Sights", "🏛️", listOf("tourist_attraction", "museum", "place_of_worship")),
+    PARKS("Parks", "🌳", listOf("park", "national_park")),
 }
 
 sealed class PlacesError(message: String) : Exception(message) {

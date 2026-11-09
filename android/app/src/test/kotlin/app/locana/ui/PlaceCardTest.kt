@@ -42,7 +42,8 @@ class PlaceCardTest {
             }
         }
         rule.onNodeWithText("Warung Sate Pak Haji").assertIsDisplayed()
-        rule.onNodeWithText("Indonesian restaurant · 1.1 km from you").assertIsDisplayed()
+        rule.onNodeWithText("Indonesian restaurant").assertIsDisplayed()
+        rule.onNodeWithText("1.1 km from you").assertIsDisplayed()
         rule.onNodeWithText("4.6").assertIsDisplayed()
         rule.onNodeWithText("(1280)").assertIsDisplayed()
         rule.onNodeWithText("· Open now").assertIsDisplayed()
@@ -57,7 +58,7 @@ class PlaceCardTest {
     fun `a place with only a name still gets a usable card`() {
         rule.setContent { LocanaTheme { PlaceCard(PoiUi("p2", "Gedung Sate", -6.9, 107.6, null, loading = true, error = "Places is not switched on"), from = null, onClose = {}) } }
         rule.onNodeWithText("Gedung Sate").assertIsDisplayed()
-        rule.onNodeWithText("Loading details").assertIsDisplayed()
+        rule.onNodeWithText("Loading details", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Directions").assertIsDisplayed()
         val dir = java.io.File(System.getenv("LOCANA_SHOTS_DIR") ?: "build/shots").apply { mkdirs() }
         rule.waitForIdle()
