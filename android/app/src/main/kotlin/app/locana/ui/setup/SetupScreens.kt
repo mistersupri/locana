@@ -70,7 +70,7 @@ fun ProfileSetupScreen(vm: SetupViewModel, onNext: () -> Unit) {
         Spacer(Modifier.height(24.dp))
         Text("How should your circle see you?", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Your name and a color. Locana shows initials instead of photos.",
+            "Your name and a color. You can add a photo later in your profile.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
@@ -109,6 +109,10 @@ fun PermissionsScreen(vm: SetupViewModel, onDone: () -> Unit, finishOnboarding: 
         vm.tracking.refreshPermissions()
         step = 3
     }
+    val motion = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        vm.tracking.refreshPermissions()
+        step = 4
+    }
     fun done() {
         if (finishOnboarding) vm.finish()
         onDone()
@@ -144,6 +148,13 @@ fun PermissionsScreen(vm: SetupViewModel, onDone: () -> Unit, finishOnboarding: 
                 onPrimary = { notifications.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 onSkip = { step = 3 },
             )
+            step <= 3 && Build.VERSION.SDK_INT >= 29 && !perms.motion -> Explain(
+                title = "Optional: tell driving from walking",
+                body = "Android can tell whether you are in a vehicle, on foot or standing still, using the phone's motion sensors. Locana uses that so your circle sees \"Driving\" in traffic and not \"Walking\", and so a stay at home is not mistaken for a trip. Nothing but that label is stored.",
+                primary = "Allow motion detection",
+                onPrimary = { motion.launch(Manifest.permission.ACTIVITY_RECOGNITION) },
+                onSkip = { step = 4 },
+            )
             else -> {
                 Text("You're set", style = MaterialTheme.typography.headlineMedium)
                 Text(
@@ -169,7 +180,7 @@ private fun statusLine(location: Boolean, background: Boolean, notifications: Bo
     append(if (location) "Location: allowed" else "Location: not allowed. You can browse, but sharing and exploration stay off.")
     if (location) append(if (background) ", including in the background." else ", while the app is open.")
     append(if (notifications) " Notifications: on." else " Notifications: off.")
-    append(" Sharing itself is still off; start it from the Map when you want.")
+    append(" Sharing starts by itself for the circles you belong to; you can hide from a person on the map.")
 }
 
 @Composable

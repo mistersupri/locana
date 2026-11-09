@@ -100,6 +100,7 @@ class LocationRepository @Inject constructor(
                     r.location?.recordedAt?.let { Instant.parse(it).toEpochMilli() }, r.location?.batteryPct, now,
                     r.location?.speedMps, r.location?.bearingDeg, r.location?.movement,
                     r.location?.stationarySince?.let { Instant.parse(it).toEpochMilli() },
+                    r.location?.mode,
                 )
             })
         }
@@ -116,22 +117,13 @@ class LocationRepository @Inject constructor(
                 val at = e.data.s("recordedAt")?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
                 val lat = e.data.d("latitude")
                 val lon = e.data.d("longitude")
-                val before = db.members().find(circleId, userId)
-                // Staying carries over while the person remains within 100 m; any real move ends it.
-                val sameSpot = before?.latitude != null && before.longitude != null && lat != null && lon != null &&
-                    app.locana.domain.Geo.distanceM(app.locana.domain.LatLon(before.latitude, before.longitude), app.locana.domain.LatLon(lat, lon)) <= 100
                 val speed = e.data.d("speedMps")
                 val accuracy = e.data.d("accuracyM")
-                val since = if (sameSpot) before?.stationarySinceMs ?: before?.recordedAtMs else null
-                val step = if (before?.latitude != null && before.longitude != null && lat != null && lon != null)
-                    app.locana.domain.Geo.distanceM(app.locana.domain.LatLon(before.latitude, before.longitude), app.locana.domain.LatLon(lat, lon)) else 0.0
-                // Same rules as the server: staying after 5 quiet minutes; moving only when a clear speed is backed by a real step.
-                val movement = when {
-                    since != null && at != null && at - since >= 5 * 60_000 -> "STAYING"
-                    speed != null && speed >= 1.5 && step >= 25 && (accuracy ?: 0.0) <= 30 -> "MOVING"
-                    else -> "UNKNOWN"
-                }
-                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", lat, lon, accuracy, at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis(), speed, e.data.d("bearingDeg"), movement, if (movement == "STAYING") since else null)))
+                // The server works out staying and moving (with the phone's own activity) and sends the verdict with the position.
+                val movement = e.data.s("movement") ?: "UNKNOWN"
+                val mode = e.data.s("mode")
+                val since = e.data.s("stationarySince")?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", lat, lon, accuracy, at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis(), speed, e.data.d("bearingDeg"), movement, if (movement == "STAYING") since else null, mode)))
             }
             "member.availability" -> {
                 val circleId = e.data.s("circleId") ?: return

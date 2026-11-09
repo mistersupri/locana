@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class PermissionState(val fine: Boolean, val coarse: Boolean, val background: Boolean, val notifications: Boolean) {
+data class PermissionState(val fine: Boolean, val coarse: Boolean, val background: Boolean, val notifications: Boolean, val motion: Boolean = true) {
     val anyLocation: Boolean get() = fine || coarse
 }
 
@@ -36,6 +36,7 @@ class TrackingController @Inject constructor(@ApplicationContext private val con
         coarse = granted(Manifest.permission.ACCESS_COARSE_LOCATION),
         background = Build.VERSION.SDK_INT < 29 || granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
         notifications = Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS),
+        motion = Build.VERSION.SDK_INT < 29 || granted(Manifest.permission.ACTIVITY_RECOGNITION),
     )
 
     fun refreshPermissions(): PermissionState = readPermissions().also { _permissions.value = it }

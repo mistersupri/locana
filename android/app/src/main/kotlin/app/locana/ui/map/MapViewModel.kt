@@ -64,6 +64,8 @@ data class MemberPin(
     val speedMps: Double? = null,
     /** STAYING, MOVING or UNKNOWN. */
     val movement: String? = null,
+    /** DRIVING, CYCLING or WALKING while moving. */
+    val mode: String? = null,
     val stationarySinceMs: Long? = null,
     val isMe: Boolean,
     val hiddenFromThem: Boolean,
@@ -71,7 +73,7 @@ data class MemberPin(
 )
 
 /** The member whose pin was tapped: their day of stays and trips shows in the sheet. */
-data class FocusUi(val userId: String, val day: java.time.LocalDate, val items: app.locana.ui.components.UiState<List<app.locana.ui.timeline.TimelineItem>>)
+data class FocusUi(val userId: String, val day: java.time.LocalDate, val items: app.locana.ui.components.UiState<List<app.locana.ui.timeline.TimelineItem>>, /** Positions the server has for this day, even when they are not yet a stay or a trip. */ val points: Int = 0)
 
 data class MapUi(
     val circles: List<Pair<String, String>> = emptyList(),
@@ -108,6 +110,7 @@ class MapViewModel @Inject constructor(
     val tracking: TrackingController,
     private val signals: DeviceSignals,
     private val heading: app.locana.data.system.HeadingSensor,
+    private val activity: app.locana.data.system.ActivityMonitor,
 ) : ViewModel() {
     /** Unread notifications, for the badge on the bell. */
     val unread: StateFlow<Int> = notifications.unread
@@ -122,7 +125,7 @@ class MapViewModel @Inject constructor(
      * phone's own newest fix and battery: your own pin should be where you are now, not where the
      * last upload happened to be.
      */
-    private data class Tick(val now: Long, val fix: android.location.Location?, val previous: android.location.Location?, val batteryPct: Int?)
+    private data class Tick(val now: Long, val fix: android.location.Location?, val previous: android.location.Location?, val batteryPct: Int?, val activity: String?)
 
     private var lastFix: android.location.Location? = null
 
@@ -131,7 +134,7 @@ class MapViewModel @Inject constructor(
             val fix = ownFix()
             val previous = lastFix
             if (fix != null) lastFix = fix
-            emit(Tick(System.currentTimeMillis(), fix, previous, signals.battery().pct))
+            emit(Tick(System.currentTimeMillis(), fix, previous, signals.battery().pct, activity.current()))
             delay(15_000)
         }
     }
@@ -170,10 +173,18 @@ class MapViewModel @Inject constructor(
             // Own pin: prefer this phone's own fix when it is newer than what the server has.
             val own = tick.fix?.takeIf { isMe && it.time >= (r?.recordedAtMs ?: 0L) && now - it.time < 10 * 60_000 }
             val recordedAt = own?.time ?: r?.recordedAtMs
-            // Moving needs a recent, precise fix whose speed is backed by a real step since the last one.
-            val step = if (own != null && tick.previous != null) own.distanceTo(tick.previous).toDouble() else 0.0
-            val ownMoving = own != null && now - own.time <= 90_000 && own.hasSpeed() && own.speed >= 1.5f && own.accuracy <= 30f && step >= 15.0 && r?.movement != "STAYING"
-            val movement = if (own != null) (if (ownMoving) "MOVING" else r?.movement?.takeIf { it == "STAYING" } ?: "UNKNOWN") else r?.movement
+            // Your own state comes from this phone's activity recognition when allowed (no lag, and it knows a jam
+            // from a stroll); otherwise from the server's verdict on your last upload, like everyone else's.
+            val serverMovement = r?.movement
+            val local = if (own != null) tick.activity else null
+            val localMode = when (local) { "vehicle" -> "DRIVING"; "cycling" -> "CYCLING"; "walking", "running" -> "WALKING"; else -> null }
+            val movement = when {
+                local != null && localMode != null && serverMovement != "STAYING" -> "MOVING"
+                local == "still" && serverMovement != "STAYING" -> "UNKNOWN"
+                else -> serverMovement
+            }
+            val mode = if (movement == "MOVING") localMode ?: r?.mode else null
+            val ownSpeed = own?.takeIf { it.hasSpeed() && now - it.time <= 90_000 }?.speed?.toDouble()
             MemberPin(
                 userId = m.userId,
                 name = m.displayName,
@@ -185,9 +196,10 @@ class MapViewModel @Inject constructor(
                 recordedAtMs = recordedAt,
                 batteryPct = if (isMe) tick.batteryPct ?: r?.batteryPct else r?.batteryPct,
                 // Your own pin points where your phone points, live; others show the heading of their last upload.
-                bearingDeg = if (isMe) live.heading?.toDouble() ?: own?.takeIf { it.hasBearing() && ownMoving }?.bearing?.toDouble() ?: r?.bearingDeg else r?.bearingDeg,
-                speedMps = if (ownMoving) own?.speed?.toDouble() else if (own != null) null else r?.speedMps,
+                bearingDeg = if (isMe) live.heading?.toDouble() ?: r?.bearingDeg else r?.bearingDeg,
+                speedMps = if (movement == "MOVING") (if (isMe) ownSpeed ?: r?.speedMps else r?.speedMps) else null,
                 movement = movement,
+                mode = mode,
                 stationarySinceMs = if (r?.movement == "STAYING" && movement == "STAYING") r.stationarySinceMs else null,
                 isMe = isMe,
                 hiddenFromThem = m.userId in d.hiddenFromViewerIds,
@@ -275,7 +287,7 @@ class MapViewModel @Inject constructor(
             // Ignore an answer for a person or day the sheet has already moved away from.
             _focus.update { cur ->
                 if (cur?.userId != f.userId || cur.day != f.day) cur
-                else cur.copy(items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments, today = f.day == java.time.LocalDate.now())) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
+                else cur.copy(points = r.getOrNull()?.points ?: 0, items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments, today = f.day == java.time.LocalDate.now())) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
             }
         }
     }

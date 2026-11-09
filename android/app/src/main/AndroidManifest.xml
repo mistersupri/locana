@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Optional: tells driving from walking from standing still. Asked on the permissions screen, never required. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -53,6 +55,11 @@
             android:name=".data.location.TrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Play services delivers activity recognition results here; the intent carries the data, so it is not exported to apps. -->
+        <receiver
+            android:name=".data.location.ActivityUpdatesReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".data.location.BootReceiver"

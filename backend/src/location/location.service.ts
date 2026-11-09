@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeBus } from '../realtime/realtime-bus';
 import { LocationSampleDto } from './location.dto';
 import { PreviousSample, validateSample } from './location-validation';
-import { buildTimeline, currentMovement, TimelinePoint } from './timeline';
+import { buildTimeline, CurrentMovement, currentMovement, TimelinePoint } from './timeline';
 
 export type MemberLocationStatus = 'LIVE' | 'STALE' | 'UNAVAILABLE' | 'HIDDEN';
 
@@ -121,7 +121,7 @@ export class LocationService {
           sharingCircles,
           accepted.map((s) => ({ lat: s.latitude, lon: s.longitude, accuracyM: s.accuracyM, at: s.at })),
         );
-        await this.broadcast(userId, newest);
+        await this.broadcast(userId, newest, await this.movementNow(userId, newest));
       }
     }
 
@@ -148,14 +148,24 @@ export class LocationService {
     const rows = [];
     for (const s of accepted) {
       if (s.at.getTime() - lastAt < HISTORY_MIN_GAP_MS) continue;
-      rows.push({ userId, latitude: s.latitude, longitude: s.longitude, accuracyM: s.accuracyM, speedMps: s.speedMps ?? null, recordedAt: s.at });
+      rows.push({ userId, latitude: s.latitude, longitude: s.longitude, accuracyM: s.accuracyM, speedMps: s.speedMps ?? null, activity: s.activity ?? null, recordedAt: s.at });
       lastAt = s.at.getTime();
     }
     if (rows.length) await this.prisma.locationHistory.createMany({ data: rows });
   }
 
   /** Sends the newest position to each authorized viewer, per circle. Nobody else receives it. */
-  private async broadcast(userId: string, s: LocationSampleDto & { at: Date }) {
+  /** The same staying/moving verdict the locations endpoint gives, computed once per upload for the live event. */
+  private async movementNow(userId: string, s: LocationSampleDto & { at: Date }) {
+    const rows = await this.prisma.locationHistory.findMany({
+      where: { userId, recordedAt: { gte: new Date(s.at.getTime() - 15 * 60_000), lt: s.at } },
+      orderBy: { recordedAt: 'asc' },
+      select: { latitude: true, longitude: true, accuracyM: true, speedMps: true, activity: true, recordedAt: true },
+    });
+    return currentMovement({ latitude: s.latitude, longitude: s.longitude, accuracyM: s.accuracyM, speedMps: s.speedMps ?? null, activity: s.activity ?? null, recordedAt: s.at }, rows);
+  }
+
+  private async broadcast(userId: string, s: LocationSampleDto & { at: Date }, movement: CurrentMovement) {
     const viewers = await this.access.locationViewers(userId);
     for (const [circleId, recipients] of viewers) {
       this.bus.publish({
@@ -172,6 +182,9 @@ export class LocationService {
           bearingDeg: s.bearingDeg ?? null,
           recordedAt: s.at,
           batteryPct: s.batteryPct ?? null,
+          movement: movement.state,
+          mode: movement.mode,
+          stationarySince: movement.since,
         },
       });
     }
@@ -189,7 +202,7 @@ export class LocationService {
     const recent = await this.prisma.locationHistory.findMany({
       where: { userId: { in: locations.map((l) => l.userId) }, recordedAt: { gte: new Date(now.getTime() - 12 * 3_600_000) } },
       orderBy: { recordedAt: 'asc' },
-      select: { userId: true, latitude: true, longitude: true, accuracyM: true, speedMps: true, recordedAt: true },
+      select: { userId: true, latitude: true, longitude: true, accuracyM: true, speedMps: true, activity: true, recordedAt: true },
     });
     const historyOf = new Map<string, TimelinePoint[]>();
     for (const h of recent) (historyOf.get(h.userId) ?? historyOf.set(h.userId, []).get(h.userId)!).push(h);
@@ -213,6 +226,7 @@ export class LocationService {
           batteryPct: l.batteryPct,
           activity: l.activity,
           movement: movement.state,
+          mode: movement.mode,
           stationarySince: movement.since,
         },
       };
@@ -242,7 +256,7 @@ export class LocationService {
       const hit = places.find((p) => haversineM(p.latitude, p.longitude, seg.latitude, seg.longitude) <= Math.max(p.radiusM, 100));
       return { ...seg, place: hit ? { id: hit.id, name: hit.name, type: hit.type } : null };
     });
-    return { day, from: start, to: end, segments };
+    return { day, from: start, to: end, points: rows.length, segments };
   }
 
   async history(userId: string, from?: Date, to?: Date) {

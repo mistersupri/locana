@@ -71,3 +71,7 @@ The Profile tab is gone: the gear on the map opens the profile page (photo, edit
 ### Update: honest movement and heading
 
 The badge and the "Walking" bubble need two independent signals to agree (a clear speed and a real step), on the phone and on the server, so a phone lying on a desk is never shown as walking. A still phone now checks in every two minutes without a distance filter, which is what gives stays a length and keeps the pin live. The beam under a pin follows the phone's compass: your own pin turns live, others show the heading of their last upload (GPS bearing while travelling, compass otherwise). Timeline cards say "Stayed 3 hrs, 52 mins" and mark the newest entry "Happening now".
+
+### Update: driving, walking and standing still
+
+What a pin says now comes from the phone's activity recognition when allowed, then from evidence the server can check (vehicle speed with distance, remembered for five minutes so lights and traffic do not break a drive, or a walking pace backed by a real step). The same verdict feeds the pin, the bubble, the panel status and the timeline labels (drive, ride, walk). When a day has positions but no stay or trip yet, the panel says how many positions it has instead of "nothing recorded".

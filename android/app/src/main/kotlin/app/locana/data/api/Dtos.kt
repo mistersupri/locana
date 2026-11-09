@@ -161,7 +161,7 @@ data class MemberDto(
 @Serializable data class ChallengeRequest(val title: String, val metric: String, val target: Int, val days: Int)
 
 // ── location ──
-@Serializable data class LocationDto(val latitude: Double, val longitude: Double, val accuracyM: Double, val speedMps: Double? = null, val bearingDeg: Double? = null, val recordedAt: String, val batteryPct: Int? = null, val activity: String? = null, val movement: String? = null, val stationarySince: String? = null)
+@Serializable data class LocationDto(val latitude: Double, val longitude: Double, val accuracyM: Double, val speedMps: Double? = null, val bearingDeg: Double? = null, val recordedAt: String, val batteryPct: Int? = null, val activity: String? = null, val movement: String? = null, val mode: String? = null, val stationarySince: String? = null)
 @Serializable data class MemberLocationDto(val userId: String, val status: String, val location: LocationDto? = null)
 
 @Serializable data class AvatarPhotoDto(val avatarPhotoVersion: Long? = null)
@@ -183,7 +183,7 @@ data class TimelineSegmentDto(
     val longitude: Double? = null,
     val place: TimelinePlaceDto? = null,
 )
-@Serializable data class TimelineDto(val day: String, val segments: List<TimelineSegmentDto>)
+@Serializable data class TimelineDto(val day: String, val points: Int = 0, val segments: List<TimelineSegmentDto>)
 
 @Serializable
 data class SampleDto(

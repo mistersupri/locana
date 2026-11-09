@@ -61,6 +61,25 @@ class MapMarkersTest {
     }
 
     @Test
+    fun `a car crawling in traffic is still driving`() {
+        val c = captionFor(pin("MOVING", speed = 0.5).copy(mode = "DRIVING"), null, now)
+        assertEquals("Driving", c.label)
+        assertEquals("2 km/h", c.value)
+        assertEquals("Cycling", captionFor(pin("MOVING", speed = 4.0).copy(mode = "CYCLING"), null, now).label)
+        // The mode wins over the speed: a fast reading with the mode walking is still walking.
+        assertEquals("Walking", captionFor(pin("MOVING", speed = 9.0).copy(mode = "WALKING"), null, now).label)
+    }
+
+    @Test
+    fun `activity recognition types map to what the server accepts`() {
+        assertEquals("vehicle", app.locana.data.system.ActivityMonitor.kindOf(com.google.android.gms.location.DetectedActivity.IN_VEHICLE))
+        assertEquals("cycling", app.locana.data.system.ActivityMonitor.kindOf(com.google.android.gms.location.DetectedActivity.ON_BICYCLE))
+        assertEquals("walking", app.locana.data.system.ActivityMonitor.kindOf(com.google.android.gms.location.DetectedActivity.ON_FOOT))
+        assertEquals("still", app.locana.data.system.ActivityMonitor.kindOf(com.google.android.gms.location.DetectedActivity.STILL))
+        assertEquals("unknown", app.locana.data.system.ActivityMonitor.kindOf(com.google.android.gms.location.DetectedActivity.TILTING))
+    }
+
+    @Test
     fun `a speed reading alone is not walking`() {
         // The phone is lying still but reported 10 km/h once: nothing agreed it was moving, so no badge.
         assertNull(captionFor(pin("UNKNOWN", speed = 2.8), null, now).value)

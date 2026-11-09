@@ -12,6 +12,8 @@ export interface TimelinePoint {
   accuracyM: number;
   recordedAt: Date;
   speedMps?: number | null;
+  /** What the phone says the person is doing: vehicle, cycling, walking, running, still or unknown (from Android activity recognition). */
+  activity?: string | null;
 }
 
 export const STAY_RADIUS_M = 100;
@@ -26,7 +28,8 @@ const MOVING_MIN_STEP_M = 25;
 const MOVING_MAX_ACCURACY = 30;
 const MOVING_LOOKBACK_MS = 10 * 60_000;
 
-export type TimelineMode = 'WALK' | 'DRIVE';
+export type TimelineMode = 'WALK' | 'DRIVE' | 'CYCLE';
+export type MovementMode = 'DRIVING' | 'CYCLING' | 'WALKING';
 
 export interface StaySegment {
   type: 'STAY';
@@ -88,9 +91,41 @@ function tripFrom(ps: TimelinePoint[]): TripSegment | null {
     distanceM: Math.round(dist),
     avgSpeedKmh: Math.round(avgKmh * 10) / 10,
     maxSpeedKmh: Math.round(maxMps * 3.6),
-    mode: avgKmh >= VEHICLE_KMH ? 'DRIVE' : 'WALK',
+    mode: tripMode(ps, avgKmh, Math.round(maxMps * 3.6)),
     path,
   };
+}
+
+/** Activity a phone reports, as a movement mode. STILL and unknown values say nothing. */
+export function modeOfActivity(a?: string | null): MovementMode | null {
+  switch (a) {
+    case 'vehicle': return 'DRIVING';
+    case 'cycling': return 'CYCLING';
+    case 'walking':
+    case 'running': return 'WALKING';
+    default: return null;
+  }
+}
+
+/**
+ * Walk, cycle or drive for a trip. The phone's own activity wins when it said anything; otherwise speed
+ * decides, and a vehicle is recognised by its top speed, because average speed in city traffic can be
+ * as low as a brisk walk.
+ */
+function tripMode(ps: TimelinePoint[], avgKmh: number, maxKmh: number): TimelineMode {
+  const votes = { DRIVING: 0, CYCLING: 0, WALKING: 0 };
+  let voted = 0;
+  for (const p of ps) {
+    const m = modeOfActivity(p.activity);
+    if (m) { votes[m] += 1; voted += 1; }
+  }
+  if (voted >= 2) {
+    if (votes.DRIVING / voted >= 0.3) return 'DRIVE';
+    if (votes.CYCLING / voted >= 0.3) return 'CYCLE';
+    if (votes.WALKING / voted > 0.5) return 'WALK';
+  }
+  if (maxKmh >= 16 || avgKmh >= VEHICLE_KMH * 2) return 'DRIVE';
+  return 'WALK';
 }
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
@@ -139,14 +174,25 @@ export function buildTimeline(input: TimelinePoint[]): TimelineSegment[] {
 
 export interface CurrentMovement {
   state: 'STAYING' | 'MOVING' | 'UNKNOWN';
+  /** How they are moving; only set while moving. */
+  mode: MovementMode | null;
   /** When the person arrived at where they are now. Only set while staying. */
   since: Date | null;
 }
 
+/** Evidence of a vehicle sticks for this long, so a red light or a crawl in traffic is still driving. */
+const MODE_MEMORY_MS = 5 * 60_000;
+const VEHICLE_SPEED_MPS = 4.5;
+
 /**
  * Where the person is right now relative to their recent history. `latest` is their newest fix;
- * `history` is anything before it (any order). Staying means every fix back to `since` is within
- * STAY_RADIUS_M of the newest one and the run lasts at least STAY_MIN_MS.
+ * `history` is anything before it (any order).
+ *
+ * Staying: every fix back to `since` is within STAY_RADIUS_M of the newest one for at least STAY_MIN_MS.
+ * Otherwise moving needs evidence, strongest first: the phone's activity recognition, a vehicle speed
+ * in the last five minutes, or a precise fix with a walking speed backed by a real step. A lone noisy
+ * speed reading is not evidence. Vehicle evidence is remembered for five minutes so stops and slow
+ * traffic do not flip a drive into "walking" or "stopped".
  */
 export function currentMovement(latest: TimelinePoint, history: TimelinePoint[]): CurrentMovement {
   const earlier = usable(history).filter((p) => p.recordedAt.getTime() <= latest.recordedAt.getTime());
@@ -156,15 +202,40 @@ export function currentMovement(latest: TimelinePoint, history: TimelinePoint[])
     if (haversineM(latest.latitude, latest.longitude, p.latitude, p.longitude) > STAY_RADIUS_M) break;
     since = p.recordedAt;
   }
-  const staying = latest.recordedAt.getTime() - since.getTime() >= STAY_MIN_MS;
-  if (staying) return { state: 'STAYING', since };
-  // Moving needs two things to agree: a real step since the previous fix, and a speed that fits it.
-  // A noisy speed reading from a phone lying on a desk is not movement.
-  if (latest.accuracyM > MOVING_MAX_ACCURACY || earlier.length === 0) return { state: 'UNKNOWN', since: null };
+  if (latest.recordedAt.getTime() - since.getTime() >= STAY_MIN_MS) return { state: 'STAYING', mode: null, since };
+
+  const unknown: CurrentMovement = { state: 'UNKNOWN', mode: null, since: null };
+  const moving = (mode: MovementMode): CurrentMovement => ({ state: 'MOVING', mode, since: null });
+  if (latest.accuracyM > MAX_ACCURACY_M) return unknown;
+
+  const recent = [...earlier, latest].filter((p) => latest.recordedAt.getTime() - p.recordedAt.getTime() <= MODE_MEMORY_MS);
   const prev = earlier[earlier.length - 1];
-  const dt = (latest.recordedAt.getTime() - prev.recordedAt.getTime()) / 1000;
-  if (dt <= 0 || dt * 1000 > MOVING_LOOKBACK_MS) return { state: 'UNKNOWN', since: null };
-  const step = haversineM(latest.latitude, latest.longitude, prev.latitude, prev.longitude);
-  const speed = latest.speedMps ?? step / dt;
-  return step >= MOVING_MIN_STEP_M && speed >= MOVING_MIN_SPEED_MPS ? { state: 'MOVING', since: null } : { state: 'UNKNOWN', since: null };
+  const step = prev ? haversineM(latest.latitude, latest.longitude, prev.latitude, prev.longitude) : 0;
+  const dt = prev ? (latest.recordedAt.getTime() - prev.recordedAt.getTime()) / 1000 : 0;
+  const precise = latest.accuracyM <= MOVING_MAX_ACCURACY;
+
+  // 1. The phone's own activity recognition, for the newest fix and, for vehicles, anything in the last minutes.
+  const own = modeOfActivity(latest.activity);
+  const still = latest.activity === 'still';
+  const vehicleSeen = recent.some((p) => modeOfActivity(p.activity) === 'DRIVING');
+  const fastSeen = recent.some((p) => p.accuracyM <= MOVING_MAX_ACCURACY && (p.speedMps ?? 0) >= VEHICLE_SPEED_MPS);
+  // Distance covered over the whole memory window: a vehicle that stopped at a light has still travelled.
+  const first = recent[0];
+  const travelled = first ? haversineM(latest.latitude, latest.longitude, first.latitude, first.longitude) : 0;
+  if ((vehicleSeen || fastSeen) && travelled >= 150) return moving('DRIVING');
+  if (own === 'DRIVING' && (step >= MOVING_MIN_STEP_M || (latest.speedMps ?? 0) >= 1)) return moving('DRIVING');
+
+  if (still) return unknown; // the phone says it is not being carried anywhere
+  if (own === 'CYCLING' && step >= MOVING_MIN_STEP_M) return moving('CYCLING');
+  if (own === 'WALKING' && step >= 10) return moving('WALKING');
+
+  // 2. No usable activity: a precise fix whose speed and step agree.
+  if (precise && prev && dt > 0 && dt * 1000 <= MOVING_LOOKBACK_MS) {
+    // A speed that its own step contradicts (8 m/s but 33 m in a minute) is a glitch; trust the distance covered.
+    const implied = step / dt;
+    const speed = latest.speedMps != null && implied >= latest.speedMps * 0.4 ? latest.speedMps : implied;
+    if (step >= MOVING_MIN_STEP_M && speed >= VEHICLE_SPEED_MPS) return moving('DRIVING');
+    if (step >= MOVING_MIN_STEP_M && speed >= MOVING_MIN_SPEED_MPS) return moving('WALKING');
+  }
+  return unknown;
 }

@@ -23,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 
 /** Walking pace and above this speed (m/s, about 20 km/h) reads as driving. */
 private const val DRIVING_MPS = 5.5
-private const val MOVING_MPS = 1.5
 
 /** The saved place the person is standing in, if any. */
 internal fun placeAt(m: MemberPin, places: List<PlaceDto>): PlaceDto? {
@@ -50,11 +49,14 @@ internal fun captionFor(m: MemberPin, place: PlaceDto?, nowMs: Long): Caption {
         m.presence == Presence.STALE && m.recordedAtMs != null -> Caption("Last seen", Freshness.ageLabel(m.recordedAtMs, nowMs), null)
         m.movement == "STAYING" && m.stationarySinceMs != null ->
             Caption("Here for", Formatting.duration(nowMs - m.stationarySinceMs), placeEmoji(place?.type))
-        // Only a movement state both ends agreed on counts; a lone speed reading is noise.
-        m.movement == "MOVING" -> when {
-            speed >= DRIVING_MPS -> Caption("Driving", Formatting.speedKmh(speed), "🚗")
-            speed >= MOVING_MPS -> Caption("Walking", Formatting.speedKmh(speed), "🚶")
-            else -> Caption("Moving", "on the move", "🚶")
+        // Movement comes from the phone's activity recognition and the server's verdict, never from one speed reading.
+        m.movement == "MOVING" -> {
+            val value = if (m.speedMps != null) Formatting.speedKmh(m.speedMps) else "on the move"
+            when (m.mode ?: if (speed >= DRIVING_MPS) "DRIVING" else "WALKING") {
+                "DRIVING" -> Caption("Driving", value, "🚗")
+                "CYCLING" -> Caption("Cycling", value, "🚲")
+                else -> Caption("Walking", value, "🚶")
+            }
         }
         else -> Caption(null, null, null)
     }

@@ -302,6 +302,8 @@ model LocationHistory {
   longitude  Float
   accuracyM  Float
   speedMps   Float?
+  // What the phone said the person was doing at the time (IN_VEHICLE, ON_BICYCLE, WALKING, RUNNING, STILL).
+  activity   String?
   recordedAt DateTime
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)

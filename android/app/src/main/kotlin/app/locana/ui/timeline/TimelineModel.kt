@@ -74,20 +74,21 @@ fun buildItems(
             val from = segments.getOrNull(i - 1)?.takeIf { it.type == "STAY" }?.place?.name
             val to = segments.getOrNull(i + 1)?.takeIf { it.type == "STAY" }?.place?.name
             val driving = s.mode == "DRIVE"
+            val cycling = s.mode == "CYCLE"
             TimelineItem.Trip(
                 title = when {
                     from != null && to != null -> "$from → $to"
                     to != null -> "On the way to $to"
                     from != null -> "Left $from"
-                    else -> if (driving) "Drive" else "Walk"
+                    else -> if (driving) "Drive" else if (cycling) "Ride" else "Walk"
                 },
                 range = range,
                 duration = duration,
                 distance = Formatting.distance(s.distanceM ?: 0),
                 avgSpeed = "${Math.round(s.avgSpeedKmh ?: 0.0)} km/h",
                 maxSpeed = "${s.maxSpeedKmh ?: 0} km/h",
-                driving = driving,
-                emoji = if (driving) "🚗" else "🚶",
+                driving = driving || cycling,
+                emoji = if (driving) "🚗" else if (cycling) "🚲" else "🚶",
                 path = s.path.mapNotNull { if (it.size >= 2) it[0] to it[1] else null },
                 ongoing = ongoing,
             )

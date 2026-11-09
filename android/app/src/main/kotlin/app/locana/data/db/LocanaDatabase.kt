@@ -45,6 +45,8 @@ data class CachedMemberLocation(
     /** STAYING, MOVING or UNKNOWN, as worked out by the server from recent history. */
     val movement: String? = null,
     val stationarySinceMs: Long? = null,
+    /** DRIVING, CYCLING or WALKING while moving. */
+    val mode: String? = null,
 )
 
 /** JSON snapshots of server responses, so screens open instantly and still work offline. */
@@ -82,7 +84,7 @@ interface CacheDao {
     @Query("DELETE FROM cache") suspend fun clear()
 }
 
-@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 2, exportSchema = true)
+@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 3, exportSchema = true)
 abstract class LocanaDatabase : RoomDatabase() {
     abstract fun pending(): PendingSampleDao
     abstract fun members(): MemberLocationDao
@@ -96,5 +98,12 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
         db.execSQL("ALTER TABLE member_locations ADD COLUMN bearingDeg REAL")
         db.execSQL("ALTER TABLE member_locations ADD COLUMN movement TEXT")
         db.execSQL("ALTER TABLE member_locations ADD COLUMN stationarySinceMs INTEGER")
+    }
+}
+
+/** Version 3 adds how a member is moving (driving, cycling, walking). */
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE member_locations ADD COLUMN mode TEXT")
     }
 }

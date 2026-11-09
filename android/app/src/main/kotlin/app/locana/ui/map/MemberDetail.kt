@@ -70,7 +70,7 @@ internal fun statusFor(m: MemberPin, place: PlaceDto?, me: MemberPin?, nowMs: Lo
             join("Since " + clock.format(Instant.ofEpochMilli(m.stationarySinceMs).atZone(zone)), "Here for ${Formatting.duration(nowMs - m.stationarySinceMs)}", away),
             caption.emoji,
         )
-        caption.label == "Driving" || caption.label == "Walking" -> Status(caption.label!!, join(caption.value, away), caption.emoji)
+        caption.label == "Driving" || caption.label == "Walking" || caption.label == "Cycling" -> Status(caption.label!!, join(caption.value, away), caption.emoji)
         else -> Status("Live", join("Updated " + (m.recordedAtMs?.let { Freshness.ageLabel(it, nowMs) } ?: "just now"), away), null)
     }
 }
@@ -124,8 +124,9 @@ internal fun MemberDetail(
             is UiState.Data -> if (items.value.isEmpty()) {
                 item {
                     EmptyState(
-                        "Nothing recorded for ${dayLabel(focus.day).lowercase()}",
-                        "Places and trips are recorded while someone belongs to a circle with location on. Days older than the history limit are removed.",
+                        if (focus.points > 0) "Collecting ${dayLabel(focus.day).lowercase()}" else "Nothing recorded for ${dayLabel(focus.day).lowercase()}",
+                        if (focus.points > 0) "${focus.points} positions so far. A place shows up after 5 minutes in one spot, a trip once about 30 m have been covered."
+                        else "A place is recorded after 5 minutes in one spot and a trip while travelling, once location is on and Locana has been running for a few minutes. Days older than the history limit are removed.",
                     )
                 }
             } else {

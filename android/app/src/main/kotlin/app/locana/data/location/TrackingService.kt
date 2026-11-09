@@ -51,6 +51,7 @@ class TrackingService : LifecycleService() {
     @Inject lateinit var repo: LocationRepository
     @Inject lateinit var signals: DeviceSignals
     @Inject lateinit var heading: app.locana.data.system.HeadingSensor
+    @Inject lateinit var activity: app.locana.data.system.ActivityMonitor
     @Inject lateinit var notifier: Notifier
     @Inject lateinit var controller: TrackingController
 
@@ -68,6 +69,7 @@ class TrackingService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         fused = LocationServices.getFusedLocationProviderClient(this)
+        activity.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -125,7 +127,12 @@ class TrackingService : LifecycleService() {
             sharingActive = s != null && !s.globallyPaused && s.sessions.any { it.status == "ACTIVE" },
             explorationEnabled = s?.explorationEnabled == true,
             appInForeground = signals.appInForeground(),
-            moving = MovementDetector.isMoving(recent.toList()),
+            // The phone's own activity guess beats speed: a car in a jam is moving, a phone on a desk is not.
+            moving = when (activity.current()) {
+                "vehicle", "cycling", "walking", "running" -> true
+                "still" -> MovementDetector.isMoving(recent.toList()) && recent.lastOrNull()?.let { (it.speedMps ?: 0f) > 4f } == true
+                else -> MovementDetector.isMoving(recent.toList())
+            },
             batteryPct = b.pct,
             charging = b.charging,
             powerSaveMode = b.powerSave,
@@ -185,7 +192,7 @@ class TrackingService : LifecycleService() {
                 bearingDeg = direction,
                 altitudeM = if (l.hasAltitude()) l.altitude else null,
                 source = if (l.provider == "gps") "gps" else "fused",
-                activity = null,
+                activity = activity.current(),
                 isMock = mock,
                 batteryPct = battery.pct,
             ),
@@ -244,6 +251,7 @@ class TrackingService : LifecycleService() {
 
     private fun stopSelfSafely() {
         try { fused.removeLocationUpdates(callback) } catch (_: Exception) {}
+        activity.stop()
         controller.markStopped()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()

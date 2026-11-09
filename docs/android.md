@@ -162,3 +162,7 @@ Do not publish a battery percentage until these measurements exist.
 - `adb shell dumpsys location` shows active location requests and their intervals.
 - Layout Inspector with recomposition counts for the Map screen; markers are recomposed only when member data changes.
 - `adb shell dumpsys jobscheduler | grep locana` to watch WorkManager jobs under Doze (`adb shell dumpsys deviceidle force-idle` to simulate).
+
+## Motion detection (optional permission)
+
+`ACTIVITY_RECOGNITION` (Android 10 and later) is asked on the permissions screen, after location and notifications, and can be skipped. With it, `ActivityMonitor` registers for Google's activity updates while tracking runs and stamps each uploaded fix with `vehicle`, `cycling`, `walking`, `running` or `still` (only when recent and at least 50% sure); the stationary tracking plan also treats a moving activity as moving. Without it the server falls back to speed and distance. Only the label is uploaded.

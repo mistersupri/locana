@@ -69,8 +69,8 @@ describe('currentMovement', () => {
     expect(m.since).toEqual(new Date(T0 + 40 * 60_000));
   });
 
-  it('is moving when the device reports speed', () => {
-    expect(currentMovement(pt(5, 0, { speedMps: 8 }), [pt(4, 0.0003)]).state).toBe('MOVING');
+  it('ignores a device speed that its own step contradicts', () => {
+    expect(currentMovement(pt(5, 0, { speedMps: 8 }), [pt(4, 0.0003)]).state).toBe('UNKNOWN'); // 8 m/s, but 33 m in a minute
   });
 
   it('ignores a noisy speed reading when the phone has not moved', () => {
@@ -82,10 +82,51 @@ describe('currentMovement', () => {
   });
 
   it('moves when the step and the speed agree, even without a device speed', () => {
-    expect(currentMovement(pt(5, 0.001), [pt(4)]).state).toBe('MOVING'); // about 111 m in a minute
+    const m = currentMovement(pt(5, 0.001), [pt(4)]); // about 111 m in a minute: 1.9 m/s
+    expect(m).toMatchObject({ state: 'MOVING', mode: 'WALKING' });
   });
 
   it('is unknown without history', () => {
-    expect(currentMovement(pt(5), [])).toEqual({ state: 'UNKNOWN', since: null });
+    expect(currentMovement(pt(5), [])).toEqual({ state: 'UNKNOWN', mode: null, since: null });
+  });
+});
+
+describe('driving detection', () => {
+  const drive = (min: number, km: number, extra: Partial<TimelinePoint> = {}) => pt(min, km * 0.009, { speedMps: 9, ...extra });
+
+  it('calls a clear vehicle speed with real distance driving', () => {
+    const m = currentMovement(drive(5, 3), [drive(1, 0), drive(2, 0.6), drive(3, 1.2), drive(4, 1.8)]);
+    expect(m).toMatchObject({ state: 'MOVING', mode: 'DRIVING' });
+  });
+
+  it('keeps calling it driving while crawling in traffic or waiting at a light', () => {
+    const m = currentMovement(pt(8, 5 * 0.009 + 0.0001, { speedMps: 0.4 }), [drive(1, 0), drive(2, 1), drive(3, 2), drive(4, 3), drive(5, 4), pt(6, 5 * 0.009, { speedMps: 0 }), pt(7, 5 * 0.009, { speedMps: 0.2 })]);
+    expect(m).toMatchObject({ state: 'MOVING', mode: 'DRIVING' });
+  });
+
+  it('trusts the phone saying vehicle even at a walking pace', () => {
+    const m = currentMovement(pt(5, 0.0006, { speedMps: 2, activity: 'vehicle' }), [pt(4, 0, { activity: 'vehicle' })]);
+    expect(m).toMatchObject({ state: 'MOVING', mode: 'DRIVING' });
+  });
+
+  it('a phone that says still is not walking, whatever its speed reads', () => {
+    expect(currentMovement(pt(5, 0.0004, { speedMps: 1.6, activity: 'still' }), [pt(4)]).state).toBe('UNKNOWN');
+  });
+
+  it('uses walking and cycling from the phone', () => {
+    expect(currentMovement(pt(5, 0.0002, { activity: 'walking' }), [pt(4)])).toMatchObject({ state: 'MOVING', mode: 'WALKING' });
+    expect(currentMovement(pt(5, 0.0006, { activity: 'cycling' }), [pt(4)])).toMatchObject({ state: 'MOVING', mode: 'CYCLING' });
+  });
+
+  it('labels a trip from the activity votes, then from top speed', () => {
+    const slow = Array.from({ length: 8 }, (_, i) => pt(i, i * 0.0006, { activity: 'vehicle' }));
+    const t1 = buildTimeline(slow).find((s) => s.type === 'TRIP');
+    expect(t1 && t1.type === 'TRIP' && t1.mode).toBe('DRIVE');
+    const crawl = Array.from({ length: 8 }, (_, i) => pt(i, i * 0.0006, { speedMps: i === 3 ? 9 : 0.8 }));
+    const t2 = buildTimeline(crawl).find((s) => s.type === 'TRIP');
+    expect(t2 && t2.type === 'TRIP' && t2.mode).toBe('DRIVE');
+    const bike = Array.from({ length: 8 }, (_, i) => pt(i, i * 0.0006, { activity: 'cycling' }));
+    const t3 = buildTimeline(bike).find((s) => s.type === 'TRIP');
+    expect(t3 && t3.type === 'TRIP' && t3.mode).toBe('CYCLE');
   });
 });
