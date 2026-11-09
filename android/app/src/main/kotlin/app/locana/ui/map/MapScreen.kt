@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -117,7 +116,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
-private val SheetPeek = 300.dp
+/** Collapsed, the sheet shows only the handle, the circle name and the member count; pull it up for the rest. */
+private val SheetPeek = 110.dp
+private val SheetPeekEmpty = 300.dp
 
 private enum class SheetTab { People, Places }
 
@@ -164,7 +165,8 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val placeColor = MaterialTheme.colorScheme.secondary
 
     BottomSheetScaffold(
-        sheetPeekHeight = SheetPeek,
+        // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
+        sheetPeekHeight = if (ui.noCircles) SheetPeekEmpty else SheetPeek,
         sheetContainerColor = floatingColor(),
         sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         sheetShadowElevation = 12.dp,
@@ -198,7 +200,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                         mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
                     ),
                     uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
-                    contentPadding = PaddingValues(top = 88.dp, bottom = pad.calculateBottomPadding()),
+                    contentPadding = PaddingValues(top = 76.dp, bottom = pad.calculateBottomPadding()),
                 ) {
                     if (ui.layers.tiles) ui.tiles.forEach { t ->
                         Polygon(
@@ -245,7 +247,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
             // Top row, as in the reference: settings, circle switcher, notifications.
             Row(
-                Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -264,7 +266,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                     shape = ControlShape,
                     color = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError,
-                    modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 12.dp + 52.dp + 12.dp, start = 16.dp, end = 16.dp).fillMaxWidth(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp + 52.dp + 12.dp, start = 16.dp, end = 16.dp).fillMaxWidth(),
                 ) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Allow location so your circle can see you", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
