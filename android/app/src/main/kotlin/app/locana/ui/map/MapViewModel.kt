@@ -30,6 +30,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -148,14 +151,35 @@ class MapViewModel @Inject constructor(
 
     private var lastFix: android.location.Location? = null
 
-    private val clock = flow {
-        while (true) {
-            val fix = ownFix()
+    @Volatile private var liveLocation: android.location.Location? = null
+
+    /**
+     * One tick every 15 s, plus one for every fresh fix while the map is on screen. The phone is asked for a
+     * position every few seconds only for as long as someone is looking (the background service keeps its own,
+     * slower schedule), so your pin moves as you do.
+     */
+    private val clock = kotlinx.coroutines.flow.channelFlow {
+        fun tickOf(fix: android.location.Location?): Tick {
             val previous = lastFix
             if (fix != null) lastFix = fix
-            emit(Tick(System.currentTimeMillis(), fix, previous, signals.battery().pct, activity.current()))
-            delay(15_000)
+            return Tick(System.currentTimeMillis(), fix, previous, signals.battery().pct, activity.current())
         }
+        launch { while (true) { send(tickOf(ownFix())); delay(15_000) } }
+        launch { liveFixes().collect { liveLocation = it; send(tickOf(it)) } }
+        awaitClose { }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun liveFixes(): Flow<android.location.Location> = kotlinx.coroutines.flow.callbackFlow {
+        if (!tracking.refreshPermissions().anyLocation) { close(); return@callbackFlow }
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val cb = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(r: com.google.android.gms.location.LocationResult) { r.lastLocation?.let { trySend(it) } }
+        }
+        val req = com.google.android.gms.location.LocationRequest.Builder(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 4_000L)
+            .setMinUpdateIntervalMillis(2_000L).build()
+        try { client.requestLocationUpdates(req, cb, android.os.Looper.getMainLooper()) } catch (_: SecurityException) { close() }
+        awaitClose { client.removeLocationUpdates(cb) }
     }
 
     /** This phone's compass, only while the map is on screen. */
@@ -166,6 +190,7 @@ class MapViewModel @Inject constructor(
     @SuppressLint("MissingPermission")
     private suspend fun ownFix(): android.location.Location? {
         if (!tracking.refreshPermissions().anyLocation) return null
+        liveLocation?.takeIf { System.currentTimeMillis() - it.time < 60_000 }?.let { return it }
         return runCatching { LocationServices.getFusedLocationProviderClient(context).lastLocation.await() }.getOrNull()
     }
 
@@ -357,6 +382,23 @@ class MapViewModel @Inject constructor(
             _focus.update { cur ->
                 if (cur?.userId != f.userId || cur.day != f.day) cur
                 else cur.copy(points = r.getOrNull()?.points ?: 0, items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments, today = f.day == java.time.LocalDate.now())) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
+            }
+            if (places.available) nameStays(f.userId, f.day)
+        }
+    }
+
+    /** Looks up where each unnamed stay happened and fills the names in as they arrive. */
+    private suspend fun nameStays(userId: String, day: java.time.LocalDate) {
+        val data = (_focus.value?.items as? app.locana.ui.components.UiState.Data)?.value ?: return
+        data.forEachIndexed { idx, item ->
+            if (item !is app.locana.ui.timeline.TimelineItem.Stay || !item.unnamed) return@forEachIndexed
+            val lat = item.latitude ?: return@forEachIndexed
+            val lon = item.longitude ?: return@forEachIndexed
+            val name = places.nameAt(lat, lon) ?: return@forEachIndexed
+            _focus.update { cur ->
+                val list = (cur?.items as? app.locana.ui.components.UiState.Data)?.value
+                if (cur == null || cur.userId != userId || cur.day != day || list == null || idx >= list.size) cur
+                else cur.copy(items = app.locana.ui.components.UiState.Data(list.toMutableList().also { l -> (l[idx] as? app.locana.ui.timeline.TimelineItem.Stay)?.let { l[idx] = it.copy(title = name, unnamed = false) } }))
             }
         }
     }

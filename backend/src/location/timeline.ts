@@ -17,7 +17,7 @@ export interface TimelinePoint {
 }
 
 export const STAY_RADIUS_M = 100;
-export const STAY_MIN_MS = 5 * 60_000;
+export const STAY_MIN_MS = 10 * 60_000;
 /** Fixes less precise than this are ignored: they would invent movement. */
 export const MAX_ACCURACY_M = 150;
 const MAX_PATH_POINTS = 120;

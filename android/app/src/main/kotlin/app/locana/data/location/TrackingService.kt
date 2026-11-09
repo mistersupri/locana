@@ -70,7 +70,7 @@ class TrackingService : LifecycleService() {
         super.onCreate()
         fused = LocationServices.getFusedLocationProviderClient(this)
         activity.start()
-        activity.onChange = { lifecycleScope.launch { replan() } }
+        activity.onChange = { lifecycleScope.launch { replan(); maybeFlush(force = true) } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

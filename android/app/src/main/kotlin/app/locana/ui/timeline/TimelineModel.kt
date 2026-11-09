@@ -21,6 +21,8 @@ sealed interface TimelineItem {
         val latitude: Double?,
         val longitude: Double?,
         override val ongoing: Boolean = false,
+        /** No saved place matched: the app may still look the spot up and name it. */
+        val unnamed: Boolean = false,
     ) : TimelineItem
 
     data class Trip(
@@ -69,6 +71,7 @@ fun buildItems(
                 latitude = s.latitude,
                 longitude = s.longitude,
                 ongoing = ongoing,
+                unnamed = s.place?.name == null,
             )
         } else {
             val from = segments.getOrNull(i - 1)?.takeIf { it.type == "STAY" }?.place?.name

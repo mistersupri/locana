@@ -65,6 +65,8 @@ private data class ApiPlace(
     val nationalPhoneNumber: String? = null,
     val websiteUri: String? = null,
 )
+@Serializable private data class ApiName(val displayName: Text? = null)
+@Serializable private data class ApiList2(val places: List<ApiName> = emptyList())
 @Serializable private data class ApiList(val places: List<ApiPlace> = emptyList())
 
 /**
@@ -100,6 +102,23 @@ class NearbyPlaces @Inject constructor(
                 .post(body.toRequestBody("application/json".toMediaType())).build()
             json.decodeFromString<ApiList>(execute(req)).places.mapNotNull { it.toPlace() }
         }
+    }
+
+    private val names = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * The nearest named place to a spot where someone stayed ("Alfamart Margonda", "Taman Kota"), or null.
+     * Closest first within 60 m, any kind of place; answers are remembered so a day's timeline asks once.
+     */
+    suspend fun nameAt(lat: Double, lon: Double): String? = withContext(Dispatchers.IO) {
+        val key = "%.4f,%.4f".format(lat, lon)
+        names[key]?.let { return@withContext it.ifEmpty { null } }
+        runCatching {
+            val body = "{\"maxResultCount\":1,\"rankPreference\":\"DISTANCE\",\"locationRestriction\":{\"circle\":{\"center\":{\"latitude\":$lat,\"longitude\":$lon},\"radius\":60.0}}}"
+            val req = base("https://places.googleapis.com/v1/places:searchNearby", "places.displayName")
+                .post(body.toRequestBody("application/json".toMediaType())).build()
+            json.decodeFromString<ApiList2>(execute(req)).places.firstOrNull()?.displayName?.text
+        }.getOrNull().also { if (it != null) names[key] = it }
     }
 
     private fun base(url: String, fields: String) = Request.Builder().url(url)

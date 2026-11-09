@@ -13,10 +13,10 @@ const pt = (min: number, dLat = 0, extra: Partial<TimelinePoint> = {}): Timeline
 describe('buildTimeline', () => {
   it('returns nothing for no data', () => expect(buildTimeline([])).toEqual([]));
 
-  it('finds a stay when the person remains within 100 m for 5 minutes', () => {
-    const segs = buildTimeline([pt(0), pt(2, 0.0002), pt(5, 0.0001), pt(9)]);
+  it('finds a stay when the person remains within 100 m for 10 minutes', () => {
+    const segs = buildTimeline([pt(0), pt(4, 0.0002), pt(8, 0.0001), pt(12)]);
     expect(segs).toHaveLength(1);
-    expect(segs[0]).toMatchObject({ type: 'STAY', durationSec: 9 * 60 });
+    expect(segs[0]).toMatchObject({ type: 'STAY', durationSec: 12 * 60 });
   });
 
   it('does not call a short pause a stay', () => {
@@ -25,7 +25,7 @@ describe('buildTimeline', () => {
   });
 
   it('splits stay, trip, stay', () => {
-    const points = [pt(0), pt(6), pt(10, 0.004), pt(13, 0.012), pt(16, 0.02), pt(20, 0.02), pt(26, 0.0201)];
+    const points = [pt(0), pt(11), pt(14, 0.004), pt(17, 0.012), pt(20, 0.02), pt(25, 0.02), pt(32, 0.0201)];
     const segs = buildTimeline(points);
     expect(segs.map((s) => s.type)).toEqual(['STAY', 'TRIP', 'STAY']);
     const trip = segs[1];
@@ -44,7 +44,7 @@ describe('buildTimeline', () => {
   });
 
   it('ignores imprecise fixes', () => {
-    const segs = buildTimeline([pt(0), pt(3, 0.05, { accuracyM: 900 }), pt(6)]);
+    const segs = buildTimeline([pt(0), pt(6, 0.05, { accuracyM: 900 }), pt(11)]);
     expect(segs).toHaveLength(1);
     expect(segs[0].type).toBe('STAY');
   });
