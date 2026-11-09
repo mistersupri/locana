@@ -4,6 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import app.locana.domain.LatLon
+import app.locana.domain.Geo
+import app.locana.data.places.NearbyKind
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -137,6 +142,8 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val screenHeight = LocalConfiguration.current.screenHeightDp
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(-6.2, 106.82), 11f) }
     val focus by vm.focus.collectAsStateWithLifecycle()
+    val poi by vm.poi.collectAsStateWithLifecycle()
+    val nearby by vm.nearby.collectAsStateWithLifecycle()
     val focusedId = focus?.userId
     androidx.activity.compose.BackHandler(enabled = focusedId != null) { vm.clearFocus() }
     val scaffold = androidx.compose.material3.rememberBottomSheetScaffoldState()
@@ -164,19 +171,23 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         vm.myLastLocation()?.let { camera.move(CameraUpdateFactory.newLatLngZoom(LatLng(it.first, it.second), 15f)) }
     }
 
-    // Tapping a pin (or a row) focuses that person: the camera goes to them, above the opened sheet.
-    val screenHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { screenHeight.dp.toPx() }
-    LaunchedEffect(focusedId) {
+    // Tapping a pin (or a row) focuses that person and the camera then follows them: the map is padded by the
+    // sheet, so the centre of what is left visible is where their pin goes.
+    val focusedMember = ui.members.firstOrNull { it.userId == focusedId }
+    var followedId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(focusedId, focusedMember?.lat, focusedMember?.lon) {
         if (focusedId == null) {
+            followedId = null
             scaffold.bottomSheetState.partialExpand()
             return@LaunchedEffect
         }
-        scaffold.bottomSheetState.expand()
-        val m = ui.members.firstOrNull { it.userId == focusedId }
+        val first = followedId != focusedId
+        if (first) { followedId = focusedId; scaffold.bottomSheetState.expand() }
+        val m = focusedMember
         if (m?.lat != null && m.lon != null && m.presence != Presence.HIDDEN) {
-            camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(m.lat, m.lon), 16.5f), 450)
-            // The sheet covers the lower two thirds, so lift the pin into the visible strip above it.
-            camera.animate(CameraUpdateFactory.scrollBy(0f, screenHeightPx * 0.2f), 250)
+            val at = LatLng(m.lat, m.lon)
+            if (first) camera.animate(CameraUpdateFactory.newLatLngZoom(at, 16.5f), 450)
+            else camera.animate(CameraUpdateFactory.newLatLng(at), 700)
         }
     }
 
@@ -232,7 +243,10 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                         mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
                     ),
                     uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
-                    contentPadding = PaddingValues(top = 76.dp, bottom = pad.calculateBottomPadding()),
+                    // Restaurants, shops and buildings drawn by Google are tappable: a card with details opens.
+                    onPOIClick = { p -> vm.selectPoi(p.placeId, p.name, p.latLng.latitude, p.latLng.longitude) },
+                    onMapClick = { vm.clearPoi() },
+                    contentPadding = PaddingValues(top = 76.dp, bottom = if (focusedId != null) (screenHeight * 0.66f).dp else pad.calculateBottomPadding()),
                 ) {
                     if (ui.layers.tiles) ui.tiles.forEach { t ->
                         Polygon(
@@ -272,6 +286,21 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                         )
                     }
                     if (ui.layers.members) MemberMarkers(ui.members, ui.places) { vm.focus(it) }
+                    nearby.kind?.let { kind ->
+                        val density = androidx.compose.ui.platform.LocalDensity.current.density
+                        nearby.places.forEach { p ->
+                            val chosen = poi?.id == p.id
+                            val icon = remember(kind, chosen, density) { BitmapDescriptorFactory.fromBitmap(renderEmojiDisc(kind.emoji, density, chosen)) }
+                            Marker(
+                                state = remember(p.id) { MarkerState(LatLng(p.lat, p.lon)) },
+                                icon = icon,
+                                anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f),
+                                title = p.name,
+                                zIndex = 1.5f,
+                                onClick = { vm.selectPoi(p.id, p.name, p.lat, p.lon, p); true },
+                            )
+                        }
+                    }
                 }
             } else {
                 MissingMapKey(Modifier.fillMaxSize())
@@ -327,6 +356,44 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                 Icon(Icons.Outlined.Layers, contentDescription = "Map layers")
             }
 
+            // Categories of places around the centre of the map. Each tap asks Google once; a second tap clears them.
+            if (focusedId == null) {
+                val chipTop = if (!ui.noCircles && !perms.anyLocation) 12.dp + 52.dp + 12.dp + 56.dp else 12.dp + 52.dp + 12.dp
+                Column(Modifier.align(Alignment.TopStart).padding(top = chipTop, start = 16.dp, end = 16.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NearbyKind.entries.forEach { kind ->
+                            NearbyChip(kind, selected = nearby.kind == kind) {
+                                val target = camera.position.target
+                                val corner = camera.projection?.visibleRegion?.latLngBounds?.northeast
+                                val radius = corner?.let { Geo.distanceM(LatLon(target.latitude, target.longitude), LatLon(it.latitude, it.longitude)) / 1.3 } ?: 1200.0
+                                vm.toggleNearby(kind, target.latitude, target.longitude, radius.coerceIn(400.0, 3000.0))
+                            }
+                        }
+                    }
+                    val note = when {
+                        nearby.loading -> "Looking around…"
+                        nearby.error != null -> nearby.error
+                        else -> null
+                    }
+                    if (note != null) {
+                        Surface(shape = ControlShape, color = floatingColor(), shadowElevation = 4.dp, modifier = Modifier.padding(top = 8.dp)) {
+                            Text(note, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        }
+                    }
+                }
+            }
+
+            // The popup for a tapped place, above the buttons that sit over the sheet.
+            poi?.takeIf { focusedId == null }?.let { p ->
+                val me = ui.members.firstOrNull { it.isMe }
+                PlaceCard(
+                    poi = p,
+                    from = if (me?.lat != null && me.lon != null) LatLon(me.lat, me.lon) else null,
+                    onClose = vm::clearPoi,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = above + 52.dp + 12.dp),
+                )
+            }
+
             // Invite shortcut; sharing needs no button because belonging to a circle means sharing with it.
             if (!ui.noCircles && ui.circleId != null && focusedId == null) {
                 MapPill("Invite", Icons.Outlined.PersonAdd, { nav.navigate(Routes.circleInvite(ui.circleId!!)) }, Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = above))
@@ -336,6 +403,20 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
     if (layersOpen) {
         ModalBottomSheet(onDismissRequest = { layersOpen = false }) { LayersSheet(ui.layers, vm::setLayers) }
+    }
+}
+
+@Composable
+private fun NearbyChip(kind: NearbyKind, selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val dark = LocalDarkTheme.current
+    val container by animateColorAsState(if (selected) (if (dark) scheme.primary else Palette.InkChip) else floatingColor(), tween(180), label = "nearby")
+    val content by animateColorAsState(if (selected) (if (dark) scheme.onPrimary else Color.White) else scheme.onSurface, tween(180), label = "nearbyText")
+    Surface(onClick = onClick, shape = ControlShape, color = container, contentColor = content, shadowElevation = if (selected) 0.dp else 4.dp, modifier = Modifier.heightIn(min = 44.dp)) {
+        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(kind.emoji)
+            Text(kind.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        }
     }
 }
 

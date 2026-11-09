@@ -75,6 +75,24 @@ data class MemberPin(
 /** The member whose pin was tapped: their day of stays and trips shows in the sheet. */
 data class FocusUi(val userId: String, val day: java.time.LocalDate, val items: app.locana.ui.components.UiState<List<app.locana.ui.timeline.TimelineItem>>, /** Positions the server has for this day, even when they are not yet a stay or a trip. */ val points: Int = 0)
 
+/** A place the person tapped on the map (a Google point of interest, or one of our nearby markers). */
+data class PoiUi(
+    val id: String?,
+    val name: String,
+    val lat: Double,
+    val lon: Double,
+    val place: app.locana.data.places.Place? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
+)
+
+data class NearbyUi(
+    val kind: app.locana.data.places.NearbyKind? = null,
+    val places: List<app.locana.data.places.Place> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null,
+)
+
 data class MapUi(
     val circles: List<Pair<String, String>> = emptyList(),
     val circleId: String? = null,
@@ -111,6 +129,7 @@ class MapViewModel @Inject constructor(
     private val signals: DeviceSignals,
     private val heading: app.locana.data.system.HeadingSensor,
     private val activity: app.locana.data.system.ActivityMonitor,
+    private val places: app.locana.data.places.NearbyPlaces,
 ) : ViewModel() {
     /** Unread notifications, for the badge on the bell. */
     val unread: StateFlow<Int> = notifications.unread
@@ -254,17 +273,67 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    fun select(id: String) { _focus.value = null; selection.select(id) }
+    fun select(id: String) { clearFocus(); selection.select(id) }
+
+    private val _poi = MutableStateFlow<PoiUi?>(null)
+    val poi: StateFlow<PoiUi?> = _poi.asStateFlow()
+    private val _nearby = MutableStateFlow(NearbyUi())
+    val nearby: StateFlow<NearbyUi> = _nearby.asStateFlow()
+    val placesAvailable: Boolean get() = places.available
+
+    /** Shows what we already know at once (the name from the map), then fills in details when Google answers. */
+    fun selectPoi(id: String?, name: String, lat: Double, lon: Double, known: app.locana.data.places.Place? = null) {
+        _poi.value = PoiUi(id, name, lat, lon, known, loading = id != null && known?.address == null)
+        if (id == null || known?.address != null || !places.available) {
+            _poi.update { it?.copy(loading = false) }
+            return
+        }
+        viewModelScope.launch {
+            val r = places.details(id)
+            _poi.update { cur ->
+                if (cur?.id != id) cur
+                else r.fold({ cur.copy(place = it, loading = false, error = null) }, { cur.copy(loading = false, error = it.message) })
+            }
+        }
+    }
+
+    fun clearPoi() { _poi.value = null }
+
+    /** Tapping the active category again turns it off. */
+    fun toggleNearby(kind: app.locana.data.places.NearbyKind, lat: Double, lon: Double, radiusM: Double) {
+        if (_nearby.value.kind == kind) { _nearby.value = NearbyUi(); return }
+        _nearby.value = NearbyUi(kind, loading = true)
+        viewModelScope.launch {
+            val r = places.nearby(lat, lon, radiusM, kind)
+            _nearby.update { cur ->
+                if (cur.kind != kind) cur
+                else r.fold({ cur.copy(places = it, loading = false, error = if (it.isEmpty()) "Nothing of this kind found around here" else null) }, { cur.copy(loading = false, error = it.message) })
+            }
+        }
+    }
 
     private val _focus = MutableStateFlow<FocusUi?>(null)
     val focus: StateFlow<FocusUi?> = _focus.asStateFlow()
 
+    private var refreshJob: Job? = null
+
     fun focus(userId: String) {
+        _poi.value = null
         _focus.value = FocusUi(userId, java.time.LocalDate.now(), app.locana.ui.components.UiState.Loading)
         loadTimeline()
+        // New positions keep arriving, so today's day is reloaded quietly while the panel is open.
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            while (true) {
+                delay(15_000)
+                val f = _focus.value ?: break
+                if (f.userId != userId) break
+                if (f.day == java.time.LocalDate.now()) loadTimeline()
+            }
+        }
     }
 
-    fun clearFocus() { _focus.value = null }
+    fun clearFocus() { refreshJob?.cancel(); _focus.value = null }
 
     fun shiftDay(days: Long) {
         val f = _focus.value ?: return
@@ -299,16 +368,34 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch { circles.hideFrom(id, viewerId, hidden); loadCircle(id) }
     }
 
+    // Tiles and landmarks seen so far are kept and only added to: panning back shows them at once, and each
+    // request covers a margin around the screen, so the next pan usually finds its tiles already loaded.
+    private val tileCache = LinkedHashMap<String, TileDto>()
+    private val landmarkCache = LinkedHashMap<String, LandmarkDto>()
+
     /** Game layers follow the camera, debounced so panning does not flood the server. */
     fun onViewport(b: TileBounds, zoom: Float, centerLat: Double, centerLon: Double) {
         viewportJob?.cancel()
         viewportJob = viewModelScope.launch {
-            delay(600)
+            delay(250)
             val layers = settings.snapshot().layers
-            if (layers.tiles && zoom >= 13f) game.tiles(b).onSuccess { t -> overlay.update { it.copy(tiles = t.tiles) } }
-            else overlay.update { it.copy(tiles = emptyList()) }
+            if (layers.tiles && zoom >= 13f) {
+                val padLat = (b.north - b.south) * 0.5
+                val padLon = (b.east - b.west) * 0.5
+                game.tiles(TileBounds(b.north + padLat, b.south - padLat, b.east + padLon, b.west - padLon)).onSuccess { t ->
+                    if (!t.tooLarge) {
+                        t.tiles.forEach { tileCache[it.id] = it }
+                        while (tileCache.size > 4000) tileCache.remove(tileCache.keys.first())
+                        overlay.update { it.copy(tiles = tileCache.values.toList()) }
+                    }
+                }
+            } else if (!layers.tiles) overlay.update { it.copy(tiles = emptyList()) }
             if (layers.territories && zoom >= 11f) game.territories(b).onSuccess { t -> overlay.update { it.copy(territories = t) } }
-            if (layers.landmarks && zoom >= 11f) game.landmarks(centerLat, centerLon).onSuccess { l -> overlay.update { it.copy(landmarks = l) } }
+            if (layers.landmarks && zoom >= 11f) game.landmarks(centerLat, centerLon).onSuccess { l ->
+                l.forEach { landmarkCache[it.id] = it }
+                while (landmarkCache.size > 500) landmarkCache.remove(landmarkCache.keys.first())
+                overlay.update { it.copy(landmarks = landmarkCache.values.toList()) }
+            }
         }
     }
 

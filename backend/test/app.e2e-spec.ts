@@ -27,6 +27,8 @@ describe('Locana end to end', () => {
     a = await register(app, 'Ana');
     b = await register(app, 'Budi');
     outsider = await register(app, 'Citra');
+    // Exploration starts on for new accounts; these scenarios test sharing on its own, so start with it off.
+    for (const u of [a, b, outsider]) await api(app, u).patch('/me/privacy', { explorationEnabled: false }).expect(200);
   });
 
   afterAll(async () => {
@@ -106,8 +108,17 @@ describe('Locana end to end', () => {
       await api(app, outsider).get(`/circles/${circleId}/feed`).expect(404);
     });
 
-    it('refuses location uploads while sharing and exploration are off', async () => {
-      const r = await api(app, a).post('/location', { samples: [sample(AWAY.lat, AWAY.lon)] }).expect(409);
+    it('new accounts start with exploration and history on, and can switch them off', async () => {
+      const fresh = await register(app, 'Dewi');
+      const me = await api(app, fresh).get('/me').expect(200);
+      expect(me.body.privacy).toMatchObject({ explorationEnabled: true, historyEnabled: true });
+      await api(app, fresh).patch('/me/privacy', { explorationEnabled: false, historyEnabled: false }).expect(200);
+      expect((await api(app, fresh).get('/me').expect(200)).body.privacy).toMatchObject({ explorationEnabled: false, historyEnabled: false });
+    });
+
+    it('refuses location uploads from someone who shares with nobody and has exploration off', async () => {
+      // Members of a circle share with it automatically; a person with no circle and no exploration has no reason to upload.
+      const r = await api(app, outsider).post('/location', { samples: [sample(AWAY.lat, AWAY.lon)] }).expect(409);
       expect(r.body.error.code).toBe('LOCATION_NOT_NEEDED');
     });
 

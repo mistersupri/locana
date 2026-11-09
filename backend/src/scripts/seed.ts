@@ -26,6 +26,28 @@ const COLLECTIBLES: { code: string; name: string; description: string; kind: Col
   { code: 'badge_heritage', name: 'Heritage Walk badge', description: 'Collected every stamp of the Central Jakarta set.', kind: 'BADGE', rarity: 'EPIC', setCode: 'jakarta_center', iconKey: 'badge_heritage' },
 ];
 
+/**
+ * More public places across Greater Jakarta, so players outside the centre have something to visit.
+ * Coordinates are approximate (checked to within about 100 m); fix any of them with PATCH /v1/admin/landmarks.
+ */
+const WIDER_LANDMARKS = [
+  { code: 'pancoran', name: 'Tugu Pancoran (Patung Dirgantara)', category: 'monument', latitude: -6.2428, longitude: 106.8428, radiusM: 120, description: 'The Dirgantara statue at the Pancoran junction.' },
+  { code: 'taman_mini', name: 'Taman Mini Indonesia Indah', category: 'park', latitude: -6.3025, longitude: 106.8951, radiusM: 300, description: 'Cultural park with pavilions from every province.' },
+  { code: 'lubang_buaya', name: 'Monumen Pancasila Sakti', category: 'monument', latitude: -6.2921, longitude: 106.9033, radiusM: 150, description: 'Memorial and museum at Lubang Buaya.' },
+  { code: 'ragunan', name: 'Kebun Binatang Ragunan', category: 'park', latitude: -6.3125, longitude: 106.8206, radiusM: 300, description: 'Zoo and forest park in South Jakarta.' },
+  { code: 'ancol', name: 'Taman Impian Jaya Ancol', category: 'park', latitude: -6.1244, longitude: 106.8423, radiusM: 300, description: 'Bayside recreation area in North Jakarta.' },
+  { code: 'sunda_kelapa', name: 'Pelabuhan Sunda Kelapa', category: 'harbour', latitude: -6.1237, longitude: 106.8084, radiusM: 150, description: 'Historic harbour with traditional sailing ships.' },
+  { code: 'bank_indonesia_museum', name: 'Museum Bank Indonesia', category: 'museum', latitude: -6.1366, longitude: 106.814, radiusM: 80, description: 'Museum of money and banking in Kota Tua.' },
+  { code: 'gambir', name: 'Stasiun Gambir', category: 'station', latitude: -6.1767, longitude: 106.8306, radiusM: 120, description: 'Long-distance train station next to Monas.' },
+  { code: 'sarinah', name: 'Sarinah', category: 'landmark', latitude: -6.187, longitude: 106.8236, radiusM: 100, description: 'Jakarta\'s first department store on Jalan Thamrin.' },
+  { code: 'tim', name: 'Taman Ismail Marzuki', category: 'arts', latitude: -6.1894, longitude: 106.8387, radiusM: 150, description: 'Arts centre with theatres and galleries in Cikini.' },
+  { code: 'lapangan_banteng', name: 'Lapangan Banteng', category: 'park', latitude: -6.169, longitude: 106.8349, radiusM: 120, description: 'Public square with the Irian Jaya liberation monument.' },
+  { code: 'al_azhar', name: 'Masjid Agung Al-Azhar', category: 'religious', latitude: -6.2349, longitude: 106.7993, radiusM: 100, description: 'Large mosque in Kebayoran Baru.' },
+  { code: 'tebet_eco_park', name: 'Tebet Eco Park', category: 'park', latitude: -6.234, longitude: 106.8535, radiusM: 200, description: 'Green park along the Ciliwung in South Jakarta.' },
+  { code: 'satria_mandala', name: 'Museum Satria Mandala', category: 'museum', latitude: -6.2307, longitude: 106.8143, radiusM: 100, description: 'Military history museum on Jalan Gatot Subroto.' },
+  { code: 'jis', name: 'Jakarta International Stadium', category: 'stadium', latitude: -6.1259, longitude: 106.8605, radiusM: 250, description: 'Football stadium in Tanjung Priok.' },
+];
+
 const LANDMARKS = [
   { code: 'monas', name: 'Monumen Nasional', category: 'monument', latitude: -6.175392, longitude: 106.827153, radiusM: 150, description: 'National Monument in Merdeka Square.' },
   { code: 'istiqlal', name: 'Masjid Istiqlal', category: 'religious', latitude: -6.170166, longitude: 106.831375, radiusM: 120, description: 'National mosque of Indonesia. Visit respectfully outside prayer times.' },
@@ -72,10 +94,25 @@ async function main() {
     setCode: 'jakarta_center',
     iconKey: `stamp_${l.category}`,
   }));
-  for (const c of [...COLLECTIBLES, ...stamps]) await prisma.collectibleDefinition.upsert({ where: { code: c.code }, create: c, update: c });
+  const widerStamps = WIDER_LANDMARKS.map((l) => ({
+    code: `stamp_${l.code}`,
+    name: `${l.name} stamp`,
+    description: `Visited ${l.name}.`,
+    kind: 'LANDMARK_STAMP' as CollectibleKind,
+    rarity: 'COMMON' as Rarity,
+    setCode: 'jakarta_wider',
+    iconKey: `stamp_${l.category}`,
+  }));
+  for (const c of [...COLLECTIBLES, ...stamps, ...widerStamps]) await prisma.collectibleDefinition.upsert({ where: { code: c.code }, create: c, update: c });
 
   for (const l of LANDMARKS) {
     const data = { ...l, setCode: 'jakarta_center', collectibleCode: `stamp_${l.code}`, rewardXp: 50 };
+    const lm = await prisma.landmark.upsert({ where: { code: l.code }, create: data, update: data });
+    await prisma.territory.upsert({ where: { landmarkId: lm.id }, create: { landmarkId: lm.id, name: l.name }, update: { name: l.name } });
+  }
+
+  for (const l of WIDER_LANDMARKS) {
+    const data = { ...l, setCode: 'jakarta_wider', collectibleCode: `stamp_${l.code}`, rewardXp: 40 };
     const lm = await prisma.landmark.upsert({ where: { code: l.code }, create: data, update: data });
     await prisma.territory.upsert({ where: { landmarkId: lm.id }, create: { landmarkId: lm.id, name: l.name }, update: { name: l.name } });
   }

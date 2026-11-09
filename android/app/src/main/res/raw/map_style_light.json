@@ -146,5 +146,22 @@
     "color": "#ffffff"
    }
   ]
+ },
+ {
+  "featureType": "poi",
+  "elementType": "labels",
+  "stylers": [
+   {
+    "visibility": "on"
+   }
+  ]
+ },
+ {
+  "featureType": "poi.business",
+  "stylers": [
+   {
+    "visibility": "on"
+   }
+  ]
  }
 ]

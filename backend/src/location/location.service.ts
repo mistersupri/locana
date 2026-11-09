@@ -16,7 +16,7 @@ import { buildTimeline, CurrentMovement, currentMovement, TimelinePoint } from '
 export type MemberLocationStatus = 'LIVE' | 'STALE' | 'UNAVAILABLE' | 'HIDDEN';
 
 /** History rows are thinned: at most one per minute unless the person moved this far. */
-const HISTORY_MIN_GAP_MS = 60_000;
+const HISTORY_MIN_GAP_MS = 30_000;
 
 @Injectable()
 export class LocationService {
@@ -250,13 +250,17 @@ export class LocationService {
       orderBy: { recordedAt: 'asc' },
       take: 3_000,
     });
+    // The newest position is not always in the thinned history yet; add it so the timeline is current.
+    const latest = await this.prisma.latestLocation.findUnique({ where: { userId: ownerId } });
+    const points: TimelinePoint[] = [...rows];
+    if (latest && latest.recordedAt >= start && latest.recordedAt < end && (rows.length === 0 || latest.recordedAt > rows[rows.length - 1].recordedAt)) points.push(latest);
     const places = await this.prisma.savedPlace.findMany({ where: { circleId } });
-    const segments = buildTimeline(rows).map((seg) => {
+    const segments = buildTimeline(points).map((seg) => {
       if (seg.type !== 'STAY') return seg;
       const hit = places.find((p) => haversineM(p.latitude, p.longitude, seg.latitude, seg.longitude) <= Math.max(p.radiusM, 100));
       return { ...seg, place: hit ? { id: hit.id, name: hit.name, type: hit.type } : null };
     });
-    return { day, from: start, to: end, points: rows.length, segments };
+    return { day, from: start, to: end, points: points.length, segments };
   }
 
   async history(userId: string, from?: Date, to?: Date) {

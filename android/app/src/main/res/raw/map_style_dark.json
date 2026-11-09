@@ -87,5 +87,40 @@
     "color": "#33465f"
    }
   ]
+ },
+ {
+  "featureType": "poi",
+  "elementType": "labels",
+  "stylers": [
+   {
+    "visibility": "on"
+   }
+  ]
+ },
+ {
+  "featureType": "poi.business",
+  "stylers": [
+   {
+    "visibility": "on"
+   }
+  ]
+ },
+ {
+  "featureType": "poi",
+  "elementType": "labels.text.fill",
+  "stylers": [
+   {
+    "color": "#9fb0c8"
+   }
+  ]
+ },
+ {
+  "featureType": "poi",
+  "elementType": "labels.text.stroke",
+  "stylers": [
+   {
+    "color": "#10192b"
+   }
+  ]
  }
 ]

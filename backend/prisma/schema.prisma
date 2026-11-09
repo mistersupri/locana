@@ -149,7 +149,7 @@ model UserPrivacySettings {
   sharingPaused           Boolean  @default(false)
   historyEnabled          Boolean  @default(true)
   historyRetentionDays    Int      @default(7)
-  explorationEnabled      Boolean  @default(false) // game processing of own location samples
+  explorationEnabled      Boolean  @default(true) // game processing of own location samples; tiles stay private to the player
   showInLeaderboards      Boolean  @default(true)
   leaderboardAlias        String?
   shareExplorationWithCircles Boolean @default(true) // aggregated stats only, never tiles/coordinates

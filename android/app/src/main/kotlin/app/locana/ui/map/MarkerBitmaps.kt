@@ -208,3 +208,17 @@ private fun blend(a: Int, b: Int, t: Float): Int {
     fun ch(shift: Int) = (((a shr shift and 0xFF) * (1 - t)) + ((b shr shift and 0xFF) * t)).toInt()
     return Color.rgb(ch(16), ch(8), ch(0))
 }
+
+/** A round white marker with an emoji, for places found around you. Drawn at screen density like the pins. */
+fun renderEmojiDisc(emoji: String, density: Float, selected: Boolean = false): Bitmap {
+    val size = ((if (selected) 44 else 36) * density).toInt()
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp)
+    val m = size / 2f
+    c.drawCircle(m, m, m - 3 * density, paint(Color.WHITE).apply { setShadowLayer(2.5f * density, 0f, density, 0x55000000) })
+    if (selected) c.drawCircle(m, m, m - 3 * density, paint(0xFF5B2DD0.toInt(), Paint.Style.STROKE).apply { strokeWidth = 2.5f * density })
+    val e = paint().apply { textSize = size * 0.46f; textAlign = Paint.Align.CENTER }
+    val fm = e.fontMetrics
+    c.drawText(emoji, m, m - (fm.ascent + fm.descent) / 2, e)
+    return bmp
+}

@@ -49,6 +49,8 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = setting("MAPS_API_KEY")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"${setting("GOOGLE_SERVER_CLIENT_ID")}\"")
         buildConfigField("boolean", "HAS_MAPS_KEY", setting("MAPS_API_KEY").isNotBlank().toString())
+        // The same key is already readable in the manifest; Places requests need it as a header.
+        buildConfigField("String", "PLACES_API_KEY", "\"${setting("MAPS_API_KEY")}\"")
     }
 
     signingConfigs {

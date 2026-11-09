@@ -75,3 +75,7 @@ The badge and the "Walking" bubble need two independent signals to agree (a clea
 ### Update: driving, walking and standing still
 
 What a pin says now comes from the phone's activity recognition when allowed, then from evidence the server can check (vehicle speed with distance, remembered for five minutes so lights and traffic do not break a drive, or a walking pace backed by a real step). The same verdict feeds the pin, the bubble, the panel status and the timeline labels (drive, ride, walk). When a day has positions but no stay or trip yet, the panel says how many positions it has instead of "nothing recorded".
+
+### Update: places around you, following a person, steadier layers
+
+Restaurants, shops and buildings drawn by Google are tappable and open a card (name, kind, distance, rating, open now, address, Directions, Open in Maps). Four category chips (Food, Cafés, Shops, Sights) list places around the middle of the map with emoji markers; tapping a category again clears it. A focused person is followed: the map is padded by the sheet, so their pin stays centred in the visible strip while they move, and their day reloads every 15 seconds. Explored tiles and landmarks are cached as the map moves and requested with a margin around the screen, so panning back no longer waits for the network. Exploration now starts on for new accounts (tiles stay private), and 15 more Greater Jakarta landmarks give players outside the centre something to visit.

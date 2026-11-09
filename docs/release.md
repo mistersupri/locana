@@ -58,7 +58,7 @@ The build tidies the URL for you: spaces and newlines are trimmed, a missing tra
 
 `MAPS_API_KEY` is written into the APK, so anyone who downloads the APK can read it. That is how Android Maps keys work; the protection is the restrictions you set on the key in Google Cloud Console (APIs & Services, Credentials, your key):
 
-- **API restrictions**: allow only "Maps SDK for Android". Enable that API for the project, and make sure billing is enabled on it, or the map stays blank.
+- **API restrictions**: allow "Maps SDK for Android" and, for the place cards and the Food, Cafés, Shops and Sights buttons on the map, **"Places API (New)"**. Enable both for the project, and make sure billing is enabled, or the map stays blank. Without Places the map still works; a tapped place shows its name, distance and directions only, with a note that Places is not switched on. Places is billed per request, and the app only asks when someone taps a place or a category.
 - **Application restrictions**: "Android apps" with the package name **`app.locana`** and the SHA-1 of the key that signed the APK.
 
 The SHA-1 is the catch for releases without your own keystore: every build on GitHub is signed with a debug key generated on that build's runner, so the SHA-1 changes on every release (`preview.1` and `preview.2` differ). A key restricted to one SHA-1 then shows a blank map on the next build. Until you add your release keystore secrets (the SHA-1 then stays the same for every release), either set the application restriction to "None" and keep the API restriction, or add the SHA-1 of the specific APK you are testing. To read it:
