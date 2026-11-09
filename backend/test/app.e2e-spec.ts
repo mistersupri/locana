@@ -197,17 +197,46 @@ describe('Locana end to end', () => {
       await api(app, a).put('/sharing/pause-all', { paused: false }).expect(200);
     });
 
-    it('expired sessions end on schedule and stop sharing', async () => {
+    it('expired sessions end on schedule, and belonging to a circle opens a new one', async () => {
       const state = await api(app, a).get('/sharing').expect(200);
-      await prisma.locationSharingSession.update({ where: { id: state.body.sessions[0].id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      const oldId = state.body.sessions[0].id;
+      await prisma.locationSharingSession.update({ where: { id: oldId }, data: { expiresAt: new Date(Date.now() - 1000) } });
       const { SharingService } = await import('../src/location/sharing.service');
       await app.get(SharingService).expireSessions();
+      expect(await prisma.locationSharingSession.findUniqueOrThrow({ where: { id: oldId } })).toMatchObject({ status: 'ENDED', endReason: 'EXPIRED' });
+      // Members share with their circle, so reading the state opens an open-ended session again.
       const after = await api(app, a).get('/sharing').expect(200);
-      expect(after.body.sessions).toHaveLength(0);
+      expect(after.body.sessions).toHaveLength(1);
+      expect(after.body.sessions[0].id).not.toBe(oldId);
+      expect(after.body.sessions[0].expiresAt).toBeNull();
       const notes = await api(app, a).get('/notifications').expect(200);
       expect(notes.body.items.some((n: { kind: string }) => n.kind === 'SHARING')).toBe(true);
+    });
+
+    it('a session stopped on purpose is not reopened, belonging to a new circle is', async () => {
+      const state = await api(app, a).get('/sharing').expect(200);
+      await api(app, a).post(`/sharing/${state.body.sessions[0].id}/stop`).expect(200);
+      expect((await api(app, a).get('/sharing').expect(200)).body.sessions).toHaveLength(0);
+      const second = await api(app, a).post('/circles', { name: 'Friends' }).expect(201);
+      const st = await api(app, a).get('/sharing').expect(200);
+      expect(st.body.sessions.map((s: { circleId: string }) => s.circleId)).toEqual([second.body.id]);
       // restart for the remaining tests
       await api(app, a).post('/sharing', { circleId }).expect(201);
+    });
+
+    it('timeline: members see a shared person\'s day, others do not', async () => {
+      const day = new Date().toISOString().slice(0, 10);
+      const own = await api(app, a).get(`/circles/${circleId}/members/${a.id}/timeline?day=${day}&tzOffsetMinutes=0`).expect(200);
+      expect(own.body.day).toBe(day);
+      expect(Array.isArray(own.body.segments)).toBe(true);
+      await api(app, b).get(`/circles/${circleId}/members/${a.id}/timeline?day=${day}`).expect(200);
+      await api(app, a).get(`/circles/${circleId}/members/${a.id}/timeline?day=not-a-day`).expect(400);
+      await api(app, outsider).get(`/circles/${circleId}/members/${a.id}/timeline`).expect(404);
+      await api(app, a).post('/location', { samples: [sample(AWAY.lat, AWAY.lon, 600)] }).expect(200);
+      const locs = await api(app, b).get(`/circles/${circleId}/locations`).expect(200);
+      const ana = locs.body.find((l: { userId: string }) => l.userId === a.id);
+      expect(ana.location).not.toBeNull();
+      expect(['STAYING', 'MOVING', 'UNKNOWN']).toContain(ana.location.movement);
     });
 
     it('geofence: B gets one arrival alert when A reaches a saved place', async () => {

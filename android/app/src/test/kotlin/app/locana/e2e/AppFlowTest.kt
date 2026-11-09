@@ -180,19 +180,16 @@ class AppFlowTest {
         shot("07-invite-code")
         back()
 
-        // Map with a circle: share needs location permission, then a duration
-        waitFor("You're not sharing with Family")
-        shot("08-map-not-sharing")
+        // Map with a circle: belonging to it means sharing, so there is no Share button, only Invite
+        waitFor("1 member", substring = true)
+        shot("08-map-in-circle")
         shadowOf(ApplicationProvider.getApplicationContext<Application>())
             .grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         tab("Explore")
         tab("Map")
-        click("Share")
-        waitFor("For 1 hour")
-        shot("09-share-sheet")
-        click("For 1 hour")
-        waitFor("Sharing until", substring = true)
-        shot("10-map-sharing")
+        waitFor("Invite")
+        waitFor("Rani", substring = true)
+        shot("09-map-members")
 
         // Explore: quests, quest detail, landmarks
         tab("Explore")
@@ -269,6 +266,6 @@ class AppFlowTest {
         type("Email or username", user)
         type("Password", password)
         click("Sign in")
-        waitFor("You're not sharing with Family")
+        waitFor("Family")
     }
 }

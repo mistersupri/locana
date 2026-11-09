@@ -40,6 +40,11 @@ data class CachedMemberLocation(
     val recordedAtMs: Long?,
     val batteryPct: Int?,
     val updatedAtMs: Long,
+    val speedMps: Double? = null,
+    val bearingDeg: Double? = null,
+    /** STAYING, MOVING or UNKNOWN, as worked out by the server from recent history. */
+    val movement: String? = null,
+    val stationarySinceMs: Long? = null,
 )
 
 /** JSON snapshots of server responses, so screens open instantly and still work offline. */
@@ -62,6 +67,7 @@ interface PendingSampleDao {
 @Dao
 interface MemberLocationDao {
     @Upsert suspend fun upsert(rows: List<CachedMemberLocation>)
+    @Query("SELECT * FROM member_locations WHERE circleId = :circleId AND userId = :userId") suspend fun find(circleId: String, userId: String): CachedMemberLocation?
     @Query("SELECT * FROM member_locations WHERE circleId = :circleId") fun observe(circleId: String): Flow<List<CachedMemberLocation>>
     @Query("DELETE FROM member_locations WHERE circleId = :circleId") suspend fun clearCircle(circleId: String)
     @Query("DELETE FROM member_locations WHERE circleId = :circleId AND userId = :userId") suspend fun remove(circleId: String, userId: String)
@@ -76,9 +82,19 @@ interface CacheDao {
     @Query("DELETE FROM cache") suspend fun clear()
 }
 
-@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 1, exportSchema = true)
+@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 2, exportSchema = true)
 abstract class LocanaDatabase : RoomDatabase() {
     abstract fun pending(): PendingSampleDao
     abstract fun members(): MemberLocationDao
     abstract fun cache(): CacheDao
+}
+
+/** Version 2 adds heading, speed and stay information to the cached member positions. */
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE member_locations ADD COLUMN speedMps REAL")
+        db.execSQL("ALTER TABLE member_locations ADD COLUMN bearingDeg REAL")
+        db.execSQL("ALTER TABLE member_locations ADD COLUMN movement TEXT")
+        db.execSQL("ALTER TABLE member_locations ADD COLUMN stationarySinceMs INTEGER")
+    }
 }

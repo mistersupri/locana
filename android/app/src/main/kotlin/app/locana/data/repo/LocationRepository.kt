@@ -7,6 +7,7 @@ import app.locana.data.api.PauseAllRequest
 import app.locana.data.api.SampleDto
 import app.locana.data.api.SharingStateDto
 import app.locana.data.api.StartSharingRequest
+import app.locana.data.api.TimelineDto
 import app.locana.data.api.UploadRequest
 import app.locana.data.api.apiCall
 import app.locana.data.db.CachedMemberLocation
@@ -83,6 +84,11 @@ class LocationRepository @Inject constructor(
 
     fun memberLocations(circleId: String): Flow<List<CachedMemberLocation>> = db.members().observe(circleId)
 
+    suspend fun timeline(circleId: String, userId: String, day: java.time.LocalDate): Result<TimelineDto> = apiCall {
+        val offset = java.time.ZoneId.systemDefault().rules.getOffset(day.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()).totalSeconds / 60
+        api.timeline(circleId, userId, day.toString(), offset)
+    }
+
     suspend fun refreshLocations(circleId: String): Result<Unit> = apiCall {
         val rows = api.locations(circleId)
         val now = System.currentTimeMillis()
@@ -92,6 +98,8 @@ class LocationRepository @Inject constructor(
                 CachedMemberLocation(
                     circleId, r.userId, r.status, r.location?.latitude, r.location?.longitude, r.location?.accuracyM,
                     r.location?.recordedAt?.let { Instant.parse(it).toEpochMilli() }, r.location?.batteryPct, now,
+                    r.location?.speedMps, r.location?.bearingDeg, r.location?.movement,
+                    r.location?.stationarySince?.let { Instant.parse(it).toEpochMilli() },
                 )
             })
         }
@@ -106,7 +114,21 @@ class LocationRepository @Inject constructor(
                 val circleId = e.data.s("circleId") ?: return
                 val userId = e.data.s("userId") ?: return
                 val at = e.data.s("recordedAt")?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
-                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", e.data.d("latitude"), e.data.d("longitude"), e.data.d("accuracyM"), at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis())))
+                val lat = e.data.d("latitude")
+                val lon = e.data.d("longitude")
+                val before = db.members().find(circleId, userId)
+                // Staying carries over while the person remains within 100 m; any real move ends it.
+                val sameSpot = before?.latitude != null && before.longitude != null && lat != null && lon != null &&
+                    app.locana.domain.Geo.distanceM(app.locana.domain.LatLon(before.latitude, before.longitude), app.locana.domain.LatLon(lat, lon)) <= 100
+                val speed = e.data.d("speedMps")
+                val since = if (sameSpot) before?.stationarySinceMs ?: before?.recordedAtMs else null
+                val movement = when {
+                    since != null && at != null && at - since >= 5 * 60_000 -> "STAYING"
+                    speed != null && speed >= 1.0 -> "MOVING"
+                    !sameSpot && before != null -> "MOVING"
+                    else -> before?.movement ?: "UNKNOWN"
+                }
+                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", lat, lon, e.data.d("accuracyM"), at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis(), speed, e.data.d("bearingDeg"), movement, if (movement == "STAYING") since else null)))
             }
             "member.availability" -> {
                 val circleId = e.data.s("circleId") ?: return

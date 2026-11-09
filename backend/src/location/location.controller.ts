@@ -40,6 +40,21 @@ export class LocationController {
     return this.location.circleLocations(id, u.id);
   }
 
+  @Get('circles/:id/members/:userId/timeline')
+  timeline(
+    @CurrentUser() u: AuthUser,
+    @Param('id', uuid) id: string,
+    @Param('userId', uuid) userId: string,
+    @Query('day') day?: string,
+    @Query('tzOffsetMinutes') tz?: string,
+  ) {
+    const offset = Number(tz ?? 0);
+    if (!Number.isInteger(offset) || Math.abs(offset) > 14 * 60) throw badRequest('INVALID_TZ', 'tzOffsetMinutes must be whole minutes between -840 and 840');
+    const d = day ?? new Date(Date.now() + offset * 60_000).toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(`${d}T00:00:00Z`))) throw badRequest('INVALID_DATE', 'day must look like 2026-11-08');
+    return this.location.timeline(id, u.id, userId, d, offset);
+  }
+
   @Get('sharing')
   state(@CurrentUser() u: AuthUser) {
     return this.sharing.state(u.id);

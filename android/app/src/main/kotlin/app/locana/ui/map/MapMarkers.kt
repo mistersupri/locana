@@ -1,0 +1,109 @@
+package app.locana.ui.map
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import app.locana.data.api.PlaceDto
+import app.locana.domain.Formatting
+import app.locana.domain.Freshness
+import app.locana.domain.Geo
+import app.locana.domain.LatLon
+import app.locana.domain.Presence
+import app.locana.ui.theme.AvatarColors
+import app.locana.ui.theme.LocalReward
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import androidx.compose.material3.MaterialTheme
+
+/** Walking pace and above this speed (m/s, about 20 km/h) reads as driving. */
+private const val DRIVING_MPS = 5.5
+
+/** The saved place the person is standing in, if any. */
+internal fun placeAt(m: MemberPin, places: List<PlaceDto>): PlaceDto? {
+    if (m.lat == null || m.lon == null) return null
+    return places
+        .filter { Geo.distanceM(LatLon(m.lat, m.lon), LatLon(it.latitude, it.longitude)) <= maxOf(it.radiusM.toDouble(), 100.0) }
+        .minByOrNull { Geo.distanceM(LatLon(m.lat, m.lon), LatLon(it.latitude, it.longitude)) }
+}
+
+private fun placeEmoji(type: String?) = when (type) {
+    "HOME" -> "🏠"      // house
+    "WORK" -> "💼"      // briefcase
+    "SCHOOL" -> "🎒"    // school bag
+    "CUSTOM" -> "📍"    // pin
+    else -> "🏡"        // house with garden: staying somewhere unsaved
+}
+
+/** What the bubble and badge say about a member right now. Pure so it can be tested. */
+internal data class Caption(val label: String?, val value: String?, val emoji: String?)
+
+internal fun captionFor(m: MemberPin, place: PlaceDto?, nowMs: Long): Caption {
+    val speed = m.speedMps ?: 0.0
+    return when {
+        m.presence == Presence.STALE && m.recordedAtMs != null -> Caption("Last seen", Freshness.ageLabel(m.recordedAtMs, nowMs), null)
+        m.movement == "STAYING" && m.stationarySinceMs != null ->
+            Caption("Here for", Formatting.duration(nowMs - m.stationarySinceMs), placeEmoji(place?.type))
+        m.movement == "MOVING" || speed >= 1.0 -> when {
+            speed >= DRIVING_MPS -> Caption("Driving", Formatting.speedKmh(speed), "🚗")  // car
+            else -> Caption("Walking", Formatting.speedKmh(speed.coerceAtLeast(0.0)), "🚶")  // person walking
+        }
+        else -> Caption(null, null, null)
+    }
+}
+
+/**
+ * One marker per member, plus a heading beam under it for people who are moving. Anchored at the
+ * pin's dot so the dot sits on the exact coordinate.
+ */
+@Composable
+fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (String) -> Unit) {
+    val density = LocalDensity.current.density
+    val accent = MaterialTheme.colorScheme.primary.toArgb()
+    val frame = LocalReward.current.reward.toArgb()
+    val now = System.currentTimeMillis()
+    val cone = remember(accent, density) { BitmapDescriptorFactory.fromBitmap(renderHeadingCone(accent, density)) }
+    members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.forEach { m ->
+        val position = LatLng(m.lat!!, m.lon!!)
+        val caption = captionFor(m, placeAt(m, places), now)
+        val (bg, fg) = AvatarColors[m.avatarKey] ?: AvatarColors.getValue("explorer_slate")
+        val spec = PinSpec(
+            initials = app.locana.domain.Formatting.initials(m.name),
+            avatarColor = bg.toArgb(),
+            avatarTextColor = fg.toArgb(),
+            accent = accent,
+            framed = m.framed,
+            frameColor = frame,
+            stale = m.presence == Presence.STALE,
+            bubbleLabel = caption.label,
+            bubbleValue = caption.value,
+            emoji = caption.emoji,
+        )
+        val pin = remember(spec, density) { renderPin(spec, density).let { BitmapDescriptorFactory.fromBitmap(it.bitmap) to it.anchorY } }
+        val state = remember(m.userId) { MarkerState(position) }
+        state.position = position
+        val heading = m.bearingDeg
+        if (heading != null && m.presence == Presence.LIVE && (m.movement == "MOVING" || (m.speedMps ?: 0.0) >= 0.5)) {
+            Marker(
+                state = remember(m.userId + "cone") { MarkerState(position) }.also { it.position = position },
+                icon = cone,
+                anchor = Offset(0.5f, 1f),
+                flat = true,
+                rotation = heading.toFloat(),
+                zIndex = if (m.isMe) 1f else 0.5f,
+                onClick = { onClick(m.userId); true },
+            )
+        }
+        Marker(
+            state = state,
+            icon = pin.first,
+            anchor = Offset(0.5f, pin.second),
+            zIndex = if (m.isMe) 3f else 2f,
+            title = m.name,
+            onClick = { onClick(m.userId); true },
+        )
+    }
+}

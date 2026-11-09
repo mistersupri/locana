@@ -49,7 +49,8 @@ What exists and what was verified in this repository, as of this commit.
 - [x] Profiles, unique usernames, initials avatars with color choice, data export, account deletion
 - [x] Circles: create, rename, delete, roles (owner/admin/member), ownership transfer, remove member, leave, mute
 - [x] Invitations: 10-character random codes stored as hashes, expiry, use limits, revoke, rate-limited joining
-- [x] Opt-in sharing sessions per circle with duration, pause, resume, stop, global pause, scheduled expiry
+- [x] Sharing is automatic inside a circle; global pause, hide from one person, stop per circle and leave stay available
+- [x] Places and trips timeline per member, with how long someone has stayed and which way their phone points
 - [x] Location ingestion with validation, stale-update protection, probabilistic anti-cheat signals, optional history with retention
 - [x] Authorization core: coordinates reach only members allowed at that moment (membership, active session, no global pause, not hidden, not blocked)
 - [x] WebSocket gateway: header or first-message auth, per-circle subscriptions checked against membership, per-recipient delivery, Redis fan-out for multiple instances

@@ -66,6 +66,8 @@ interface LocanaApi {
     // location and sharing
     @POST("v1/location") suspend fun upload(@Body body: UploadRequest): UploadResponse
     @GET("v1/circles/{id}/locations") suspend fun locations(@Path("id") id: String): List<MemberLocationDto>
+    @GET("v1/circles/{id}/members/{userId}/timeline")
+    suspend fun timeline(@Path("id") id: String, @Path("userId") userId: String, @retrofit2.http.Query("day") day: String, @retrofit2.http.Query("tzOffsetMinutes") tz: Int): TimelineDto
     @GET("v1/sharing") suspend fun sharing(): SharingStateDto
     @POST("v1/sharing") suspend fun startSharing(@Body body: StartSharingRequest): SharingStateDto
     @POST("v1/sharing/{id}/pause") suspend fun pauseSharing(@Path("id") id: String): SharingStateDto

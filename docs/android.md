@@ -127,7 +127,7 @@ Release builds are minified with R8, contain no debug logging of request bodies,
 - Background location needs the Location permissions declaration in Play Console, with a video showing the in-app explanation and the "Allow all the time" request. The in-app reason: keep sharing with chosen circles while the app is closed.
 - Foreground service type `location` needs the Foreground service declaration.
 - Data safety form: precise location (shared with chosen users, optional history), name, e-mail, app activity (game progress). No data sold, no advertising.
-- Locana shows other people's locations. Play's User Data and location policies expect that people know when their location is collected and shared; the app keeps a persistent notification whenever it collects location, and sharing is always started explicitly per circle. Review the current policy text before submitting.
+- Locana shows other people's locations. Play's User Data and location policies expect that people know when their location is collected and shared; the app keeps a persistent notification whenever it collects location, and belonging to a circle means sharing with it (both circle screens say so, and the person can pause, hide or leave at any time). Review the current policy text before submitting.
 
 ## Background location: what to expect
 

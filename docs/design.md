@@ -59,3 +59,7 @@ The Map follows the owner's reference screenshot: a pale full-bleed map, white r
 ### Update: violet palette and exact reference layout
 
 At the owner's request the accent is now the reference violet (`Violet700` #5B2DD0 light, `Violet300` dark) and the light theme is white on a faint lavender paper. Layout details copied: 16 dp radius on floating controls, 28 dp sheet, a white status card at the top of the sheet, the circle name in bold, icon-only chips (the selected one is a wide dark pill, the others 56 dp squares), a circled plus, and a white bottom bar with no indicator pill where only the selected tab is violet. The light map style is warm beige land, blue water and white roads. Member pins keep the user's avatar colour, with orange for the amber avatar.
+
+### Update: map pins, timeline, automatic sharing
+
+Member markers are drawn directly onto bitmaps at the screen density, so edges stay sharp, and the marker's anchor is the small dot at the bottom of the pin, which sits exactly on the coordinate. A rounded-square avatar carries a badge (house, walking, car), a bubble says "Here for 3 hrs, 52 mins" or the current speed, and a soft beam shows the phone's heading while moving. Your own pin uses your phone's newest fix and battery, not the last upload. The refresh, locate and add buttons and the sharing card are gone: sharing is automatic inside a circle (see privacy.md), and new circles and codes live in the circle switcher. Each member has a "Places and trips" timeline with route maps.

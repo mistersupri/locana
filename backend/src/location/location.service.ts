@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { CircleAccessService } from '../circles/circle-access.service';
 import { STALE_AFTER_MS } from '../circles/circles.service';
 import { ApiError } from '../common/errors';
+import { haversineM } from '../common/geo';
 import { APP_ENV, AppEnv } from '../config/env';
 import { ExplorationService, TrustedSample } from '../game/exploration.service';
 import { PlacesService } from '../places/places.service';
@@ -10,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeBus } from '../realtime/realtime-bus';
 import { LocationSampleDto } from './location.dto';
 import { PreviousSample, validateSample } from './location-validation';
+import { buildTimeline, currentMovement, TimelinePoint } from './timeline';
 
 export type MemberLocationStatus = 'LIVE' | 'STALE' | 'UNAVAILABLE' | 'HIDDEN';
 
@@ -183,12 +185,21 @@ export class LocationService {
     const ids = [...visible, viewerId];
     const locations = await this.prisma.latestLocation.findMany({ where: { userId: { in: ids } } });
     const byId = new Map(locations.map((l) => [l.userId, l]));
+    // Recent history, only for people the viewer may see, to tell staying from moving.
+    const recent = await this.prisma.locationHistory.findMany({
+      where: { userId: { in: locations.map((l) => l.userId) }, recordedAt: { gte: new Date(now.getTime() - 12 * 3_600_000) } },
+      orderBy: { recordedAt: 'asc' },
+      select: { userId: true, latitude: true, longitude: true, accuracyM: true, speedMps: true, recordedAt: true },
+    });
+    const historyOf = new Map<string, TimelinePoint[]>();
+    for (const h of recent) (historyOf.get(h.userId) ?? historyOf.set(h.userId, []).get(h.userId)!).push(h);
     return members.map((m) => {
       const self = m.userId === viewerId;
       if (!self && !visible.has(m.userId)) return { userId: m.userId, status: 'HIDDEN' as MemberLocationStatus, location: null };
       const l = byId.get(m.userId);
       if (!l) return { userId: m.userId, status: 'UNAVAILABLE' as MemberLocationStatus, location: null };
       const stale = now.getTime() - l.recordedAt.getTime() > STALE_AFTER_MS;
+      const movement = currentMovement(l, historyOf.get(m.userId) ?? []);
       return {
         userId: m.userId,
         status: (stale ? 'STALE' : 'LIVE') as MemberLocationStatus,
@@ -201,9 +212,37 @@ export class LocationService {
           recordedAt: l.recordedAt,
           batteryPct: l.batteryPct,
           activity: l.activity,
+          movement: movement.state,
+          stationarySince: movement.since,
         },
       };
     });
+  }
+
+  /**
+   * Stays and trips for one member on one local day. The viewer needs the same permission as for
+   * the live position (member, not hidden, not blocked), and only the history the member chose to keep.
+   */
+  async timeline(circleId: string, viewerId: string, ownerId: string, day: string, tzOffsetMinutes: number, now = new Date()) {
+    await this.access.requireMember(circleId, viewerId);
+    if (ownerId !== viewerId) {
+      const visible = await this.access.visibleOwnersInCircle(circleId, viewerId, now);
+      if (!visible.has(ownerId)) throw new ApiError(HttpStatus.FORBIDDEN, 'NOT_VISIBLE', 'This person is not sharing their location with you');
+    }
+    const start = new Date(Date.parse(`${day}T00:00:00Z`) - tzOffsetMinutes * 60_000);
+    const end = new Date(start.getTime() + 86_400_000);
+    const rows = await this.prisma.locationHistory.findMany({
+      where: { userId: ownerId, recordedAt: { gte: start, lt: end } },
+      orderBy: { recordedAt: 'asc' },
+      take: 3_000,
+    });
+    const places = await this.prisma.savedPlace.findMany({ where: { circleId } });
+    const segments = buildTimeline(rows).map((seg) => {
+      if (seg.type !== 'STAY') return seg;
+      const hit = places.find((p) => haversineM(p.latitude, p.longitude, seg.latitude, seg.longitude) <= Math.max(p.radiusM, 100));
+      return { ...seg, place: hit ? { id: hit.id, name: hit.name, type: hit.type } : null };
+    });
+    return { day, from: start, to: end, segments };
   }
 
   async history(userId: string, from?: Date, to?: Date) {

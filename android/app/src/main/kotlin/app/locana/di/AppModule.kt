@@ -71,7 +71,7 @@ object AppModule {
 
     @Provides @Singleton
     fun db(@ApplicationContext ctx: Context): LocanaDatabase =
-        Room.databaseBuilder(ctx, LocanaDatabase::class.java, "locana.db").build()
+        Room.databaseBuilder(ctx, LocanaDatabase::class.java, "locana.db").addMigrations(app.locana.data.db.MIGRATION_1_2).build()
 
     @Provides fun cacheDao(db: LocanaDatabase): CacheDao = db.cache()
 

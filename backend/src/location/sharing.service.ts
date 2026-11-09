@@ -8,8 +8,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeBus } from '../realtime/realtime-bus';
 
 /**
- * Location sharing is opt-in per circle through explicit sessions. Nothing here starts
- * a session implicitly: not login, not reinstall, not a permission grant.
+ * Belonging to a circle means sharing with it: every membership gets an open-ended session the
+ * first time the person's sharing state is read (login, app start, after joining). People keep
+ * control through the global pause, hiding from a single person, stopping a circle's session and
+ * leaving the circle. A session stopped on purpose is not recreated; one that merely expired is.
  */
 @Injectable()
 export class SharingService {
@@ -36,7 +38,24 @@ export class SharingService {
     };
   }
 
+  /** Gives every circle the person belongs to an open-ended session, unless they stopped it themselves. */
+  async ensureSessions(userId: string) {
+    const [memberships, open, stopped] = await Promise.all([
+      this.prisma.circleMembership.findMany({ where: { userId }, select: { circleId: true } }),
+      this.prisma.locationSharingSession.findMany({ where: { userId, status: { in: ['ACTIVE', 'PAUSED'] } }, select: { circleId: true, status: true, expiresAt: true } }),
+      this.prisma.locationSharingSession.findMany({ where: { userId, status: 'ENDED', endReason: 'STOPPED' }, select: { circleId: true } }),
+    ]);
+    const now = new Date();
+    const covered = new Set(open.filter((s) => !s.expiresAt || s.expiresAt > now).map((s) => s.circleId));
+    const optedOut = new Set(stopped.map((s) => s.circleId));
+    const missing = memberships.map((m) => m.circleId).filter((id) => !covered.has(id) && !optedOut.has(id));
+    if (!missing.length) return;
+    await this.prisma.locationSharingSession.createMany({ data: missing.map((circleId) => ({ userId, circleId, status: 'ACTIVE' as const })) });
+    await this.announce(userId, missing);
+  }
+
   async state(userId: string) {
+    await this.ensureSessions(userId);
     const [privacy, sessions] = await Promise.all([
       this.prisma.userPrivacySettings.findUniqueOrThrow({ where: { userId } }),
       this.prisma.locationSharingSession.findMany({

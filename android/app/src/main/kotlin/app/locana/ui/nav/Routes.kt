@@ -24,6 +24,8 @@ object Routes {
     fun circleInvite(id: String) = "circle/$id/invite"
     const val CIRCLE_MEMBERS = "circle/{id}/members"
     fun circleMembers(id: String) = "circle/$id/members"
+    const val TIMELINE = "circle/{id}/timeline/{userId}"
+    fun timeline(id: String, userId: String) = "circle/$id/timeline/$userId"
     const val CIRCLE_SETTINGS = "circle/{id}/settings"
     fun circleSettings(id: String) = "circle/$id/settings"
     const val PLACES = "circle/{id}/places"

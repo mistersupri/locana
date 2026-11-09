@@ -90,6 +90,7 @@ fun MainGraph(nav: NavHostController, @Suppress("UNUSED_PARAMETER") snackbar: Sn
         composable(Routes.CIRCLE_JOIN, arguments = listOf(navArgument("code") { type = NavType.StringType; defaultValue = "" })) { CircleJoinScreen(nav) }
         composable(Routes.CIRCLE_INVITE, arguments = id) { InviteScreen(nav) }
         composable(Routes.CIRCLE_MEMBERS, arguments = id) { MembersScreen(nav) }
+        composable(Routes.TIMELINE, arguments = id + navArgument("userId") { type = NavType.StringType }) { app.locana.ui.timeline.TimelineScreen(nav) }
         composable(Routes.CIRCLE_SETTINGS, arguments = id) { CircleSettingsScreen(nav) }
         composable(Routes.PLACES, arguments = id) { PlacesScreen(nav) }
         composable(Routes.PLACE_EDIT, arguments = id + navArgument("placeId") { type = NavType.StringType; defaultValue = "" }) { PlaceEditScreen(nav) }

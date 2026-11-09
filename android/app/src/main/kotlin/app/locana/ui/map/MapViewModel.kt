@@ -8,13 +8,13 @@ import app.locana.data.api.CircleDetailDto
 import app.locana.data.api.CircleSummaryDto
 import app.locana.data.api.LandmarkDto
 import app.locana.data.api.PlaceDto
-import app.locana.data.api.SharingSessionDto
 import app.locana.data.api.SharingStateDto
 import app.locana.data.api.TerritorySummaryDto
 import app.locana.data.api.TileDto
 import app.locana.data.location.TrackingController
 import app.locana.data.prefs.MapLayers
 import app.locana.data.prefs.SettingsStore
+import app.locana.data.system.DeviceSignals
 import app.locana.data.repo.CircleRepository
 import app.locana.data.repo.GameRepository
 import app.locana.data.repo.LocationRepository
@@ -57,6 +57,11 @@ data class MemberPin(
     val accuracyM: Double?,
     val recordedAtMs: Long?,
     val batteryPct: Int?,
+    val bearingDeg: Double? = null,
+    val speedMps: Double? = null,
+    /** STAYING, MOVING or UNKNOWN. */
+    val movement: String? = null,
+    val stationarySinceMs: Long? = null,
     val isMe: Boolean,
     val hiddenFromThem: Boolean,
     val blockedByMe: Boolean,
@@ -69,8 +74,6 @@ data class MapUi(
     val members: List<MemberPin> = emptyList(),
     val sharing: SharingStateDto? = null,
     val sharingHere: Boolean = false,
-    /** This circle's active or paused sharing session, if any. */
-    val hereSession: SharingSessionDto? = null,
     val layers: MapLayers = MapLayers(),
     val places: List<PlaceDto> = emptyList(),
     val tiles: List<TileDto> = emptyList(),
@@ -97,6 +100,7 @@ class MapViewModel @Inject constructor(
     private val settings: SettingsStore,
     private val selection: CircleSelection,
     val tracking: TrackingController,
+    private val signals: DeviceSignals,
 ) : ViewModel() {
     /** Unread notifications, for the badge on the bell. */
     val unread: StateFlow<Int> = notifications.unread
@@ -106,8 +110,25 @@ class MapViewModel @Inject constructor(
     private val status = MutableStateFlow(Triple(false, null as String?, false))
     private var viewportJob: Job? = null
 
-    /** Ticks every 30 s so "LIVE" turns into "STALE" on screen without new data. */
-    private val clock = flow { while (true) { emit(System.currentTimeMillis()); delay(30_000) } }
+    /**
+     * Ticks every 15 s so "LIVE" turns into "STALE" on screen without new data, and carries this
+     * phone's own newest fix and battery: your own pin should be where you are now, not where the
+     * last upload happened to be.
+     */
+    private data class Tick(val now: Long, val fix: android.location.Location?, val batteryPct: Int?)
+
+    private val clock = flow {
+        while (true) {
+            emit(Tick(System.currentTimeMillis(), ownFix(), signals.battery().pct))
+            delay(15_000)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun ownFix(): android.location.Location? {
+        if (!tracking.refreshPermissions().anyLocation) return null
+        return runCatching { LocationServices.getFusedLocationProviderClient(context).lastLocation.await() }.getOrNull()
+    }
 
     private val pins = selection.selected.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else location.memberLocations(id) }
 
@@ -116,7 +137,8 @@ class MapViewModel @Inject constructor(
             Base(c?.value.orEmpty(), sel, d, sh, st.layers)
         },
         pins, clock, overlay, status,
-    ) { base, rows, now, ov, st ->
+    ) { base, rows, tick, ov, st ->
+        val now = tick.now
         val sel = base.selected
         val d = base.detail?.takeIf { it.id == sel }
         val sh = base.sharing
@@ -126,15 +148,25 @@ class MapViewModel @Inject constructor(
         val members = if (d == null) emptyList() else d.members.map { m ->
             val r = byId[m.userId]
             val serverPresence = r?.status?.let { runCatching { Presence.valueOf(it) }.getOrNull() } ?: Presence.UNAVAILABLE
+            val isMe = m.userId == meId
+            // Own pin: prefer this phone's own fix when it is newer than what the server has.
+            val own = tick.fix?.takeIf { isMe && it.time >= (r?.recordedAtMs ?: 0L) && now - it.time < 10 * 60_000 }
+            val recordedAt = own?.time ?: r?.recordedAtMs
+            val staying = r?.movement == "STAYING" && own == null
             MemberPin(
                 userId = m.userId,
                 name = m.displayName,
                 avatarKey = m.avatarKey,
                 framed = m.avatarFrameKey != null,
-                presence = Freshness.presence(serverPresence, r?.recordedAtMs, now),
-                lat = r?.latitude, lon = r?.longitude, accuracyM = r?.accuracyM,
-                recordedAtMs = r?.recordedAtMs, batteryPct = r?.batteryPct,
-                isMe = m.userId == meId,
+                presence = if (own != null) Presence.LIVE.let { Freshness.presence(it, recordedAt, now) } else Freshness.presence(serverPresence, r?.recordedAtMs, now),
+                lat = own?.latitude ?: r?.latitude, lon = own?.longitude ?: r?.longitude, accuracyM = own?.accuracy?.toDouble() ?: r?.accuracyM,
+                recordedAtMs = recordedAt,
+                batteryPct = if (isMe) tick.batteryPct ?: r?.batteryPct else r?.batteryPct,
+                bearingDeg = own?.takeIf { it.hasBearing() }?.bearing?.toDouble() ?: r?.bearingDeg,
+                speedMps = own?.takeIf { it.hasSpeed() }?.speed?.toDouble() ?: r?.speedMps,
+                movement = if (own != null && own.hasSpeed() && own.speed >= 1f) "MOVING" else r?.movement,
+                stationarySinceMs = if (r?.movement == "STAYING" || staying) r?.stationarySinceMs else null,
+                isMe = isMe,
                 hiddenFromThem = m.userId in d.hiddenFromViewerIds,
                 blockedByMe = m.blockedByMe,
             )
@@ -146,7 +178,6 @@ class MapViewModel @Inject constructor(
             members = members,
             sharing = sh,
             sharingHere = sh != null && !sh.globallyPaused && sh.sessions.any { it.circleId == sel && it.status == "ACTIVE" },
-            hereSession = sh?.sessions?.firstOrNull { it.circleId == sel },
             layers = layers,
             places = ov.places,
             tiles = ov.tiles,
@@ -181,7 +212,8 @@ class MapViewModel @Inject constructor(
         viewModelScope.launch {
             status.update { it.copy(first = true, second = null) }
             val r = circles.refresh()
-            location.refreshSharing()
+            // Belonging to a circle means sharing with it; the server opens the sessions, we start collecting.
+            location.refreshSharing().onSuccess { tracking.ensureRunning(it.collectLocation) }
             selection.selected.value?.let { loadCircle(it) }
             status.update { it.copy(first = false, second = r.exceptionOrNull()?.message) }
         }
@@ -190,25 +222,6 @@ class MapViewModel @Inject constructor(
     fun select(id: String) = selection.select(id)
 
     fun setLayers(l: MapLayers) = viewModelScope.launch { settings.setLayers(l) }
-
-    fun startSharing(minutes: Int?) {
-        val id = selection.selected.value ?: return
-        viewModelScope.launch {
-            location.start(id, minutes)
-                .onSuccess { tracking.ensureRunning(it.collectLocation) }
-                .onFailure { e -> status.update { s -> s.copy(second = e.message) } }
-        }
-    }
-
-    private fun changeSession(block: suspend (String) -> Result<SharingStateDto>) {
-        val id = ui.value.hereSession?.id ?: return
-        viewModelScope.launch {
-            block(id).onSuccess { tracking.ensureRunning(it.collectLocation) }.onFailure { e -> status.update { s -> s.copy(second = e.message) } }
-        }
-    }
-
-    fun pauseHere() = changeSession { location.pause(it) }
-    fun resumeHere() = changeSession { location.resume(it) }
 
     fun hideFrom(viewerId: String, hidden: Boolean) {
         val id = selection.selected.value ?: return

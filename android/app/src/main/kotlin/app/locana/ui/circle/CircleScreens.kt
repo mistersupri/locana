@@ -263,7 +263,7 @@ fun CircleCreateScreen(nav: NavController, vm: CircleFormViewModel = hiltViewMod
             FormError(error)
             Spacer(Modifier.height(20.dp))
             PrimaryButton("Create circle", { vm.create { id -> nav.popBackStack(); nav.navigate(Routes.circleInvite(id)) } }, Modifier.fillMaxWidth(), loading = busy)
-            Text("You'll be the owner. Nobody sees your location until you start sharing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
+            Text("You'll be the owner. Everyone in a circle sees each other's live location, and the places and trips of the last days. You can hide from one person, or pause everything, in Profile, Location sharing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }
@@ -281,7 +281,7 @@ fun CircleJoinScreen(nav: NavController, vm: CircleFormViewModel = hiltViewModel
             Spacer(Modifier.height(20.dp))
             PrimaryButton("Join circle", { vm.join { nav.navigate(Routes.CIRCLE) { popUpTo(Routes.MAP) } } }, Modifier.fillMaxWidth(), loading = busy)
             Text(
-                "Joining does not share your location. Members only see you after you start sharing with this circle.",
+                "Joining means everyone in this circle sees your live location, and your places and trips of the last days. You can hide from one person, or pause everything, in Profile, Location sharing.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 12.dp),

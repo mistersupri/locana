@@ -31,7 +31,11 @@ class DeviceSignals @Inject constructor(@ApplicationContext private val context:
         val level = i?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = i?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = i?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val pct = if (level >= 0 && scale > 0) level * 100 / scale else null
+        // The system's own capacity reading is what the status bar shows; the broadcast level is the fallback.
+        val fromIntent = if (level >= 0 && scale > 0) Math.round(level * 100f / scale) else null
+        val fromManager = context.getSystemService(BatteryManager::class.java)
+            ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 1..100 }
+        val pct = fromManager ?: fromIntent
         val charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
         return BatteryState(pct, charging, power.isPowerSaveMode)
     }
