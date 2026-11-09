@@ -3,6 +3,7 @@ package app.locana.ui.timeline
 import androidx.compose.foundation.layout.Arrangement
 import app.locana.ui.theme.LocalTokens
 import app.locana.ui.components.TagPill
+import app.locana.ui.components.Illustration
 import app.locana.ui.components.LocanaCard
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
@@ -124,7 +125,7 @@ internal fun StayCard(s: TimelineItem.Stay) {
     TimelineCard(Modifier.semantics { contentDescription = "${s.title}, ${s.range}, ${s.duration}" }) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(t.coralSoft), contentAlignment = Alignment.Center) {
-                Text(s.emoji, fontSize = 30.sp)
+                Illustration(if (s.emoji == "\uD83C\uDFE2") "office" else "house", size = 44.dp)
             }
             Column(Modifier.padding(start = 14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(s.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
@@ -149,7 +150,7 @@ internal fun TripCard(t: TimelineItem.Trip) {
                     Text(t.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
                     Text("${t.range} · ${t.distance}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tk.skySoft), contentAlignment = Alignment.Center) { Text(t.emoji, fontSize = 28.sp) }
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tk.skySoft), contentAlignment = Alignment.Center) { Illustration(if (t.driving) "car" else "sneaker", size = 42.dp) }
             }
             Row(Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatPill("Took ${t.duration}", tk.skySoft, Color(0xFF1E6FB0), Icons.Outlined.Timer)
