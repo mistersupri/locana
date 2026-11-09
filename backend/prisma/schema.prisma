@@ -147,7 +147,7 @@ model UserPrivacySettings {
   userId                  String   @id @db.Uuid
   // Location sharing is never enabled implicitly. Each circle also needs an active sharing session.
   sharingPaused           Boolean  @default(false)
-  historyEnabled          Boolean  @default(false)
+  historyEnabled          Boolean  @default(true)
   historyRetentionDays    Int      @default(7)
   explorationEnabled      Boolean  @default(false) // game processing of own location samples
   showInLeaderboards      Boolean  @default(true)

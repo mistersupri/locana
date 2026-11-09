@@ -50,6 +50,7 @@ class TrackingService : LifecycleService() {
 
     @Inject lateinit var repo: LocationRepository
     @Inject lateinit var signals: DeviceSignals
+    @Inject lateinit var heading: app.locana.data.system.HeadingSensor
     @Inject lateinit var notifier: Notifier
     @Inject lateinit var controller: TrackingController
 
@@ -169,6 +170,9 @@ class TrackingService : LifecycleService() {
         // Fixes without a usable accuracy are not real positions; drop them.
         if (!l.hasAccuracy() || l.accuracy <= 0f) return
         val battery = signals.battery()
+        // GPS bearing is only meaningful while moving; a still phone reports where it points from the compass.
+        val travelling = l.hasBearing() && l.hasSpeed() && l.speed >= 1.5f && l.accuracy <= 30f
+        val direction: Float? = if (travelling) l.bearing else heading.sample(l)
         val mock = if (Build.VERSION.SDK_INT >= 31) l.isMock else @Suppress("DEPRECATION") l.isFromMockProvider
         repo.enqueue(
             PendingSample(
@@ -178,7 +182,7 @@ class TrackingService : LifecycleService() {
                 recordedAtMs = l.time,
                 sequence = 0,
                 speedMps = if (l.hasSpeed()) l.speed else null,
-                bearingDeg = if (l.hasBearing()) l.bearing else null,
+                bearingDeg = direction,
                 altitudeM = if (l.hasAltitude()) l.altitude else null,
                 source = if (l.provider == "gps") "gps" else "fused",
                 activity = null,

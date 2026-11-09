@@ -51,13 +51,20 @@ class MapMarkersTest {
 
     @Test
     fun `moving shows speed and the right vehicle`() {
-        val walk = captionFor(pin("MOVING", speed = 1.4), null, now)
+        val walk = captionFor(pin("MOVING", speed = 1.6), null, now)
         assertEquals("Walking", walk.label)
-        assertEquals("5 km/h", walk.value)
+        assertEquals("6 km/h", walk.value)
         val drive = captionFor(pin("MOVING", speed = 12.0), null, now)
         assertEquals("Driving", drive.label)
         assertEquals("43 km/h", drive.value)
         assertTrue(walk.emoji != drive.emoji)
+    }
+
+    @Test
+    fun `a speed reading alone is not walking`() {
+        // The phone is lying still but reported 10 km/h once: nothing agreed it was moving, so no badge.
+        assertNull(captionFor(pin("UNKNOWN", speed = 2.8), null, now).value)
+        assertNull(captionFor(pin(null, speed = 2.8), null, now).value)
     }
 
     @Test
@@ -119,6 +126,7 @@ class MapMarkersTest {
             ),
             ZoneOffset.UTC,
         )
+        assertTrue(items.none { it.ongoing })
         val home = items[0] as TimelineItem.Stay
         assertEquals("Home", home.title)
         assertEquals("01:00 – 03:00", home.range)
@@ -131,5 +139,19 @@ class MapMarkersTest {
         val walk = items[3] as TimelineItem.Trip
         assertEquals("Left Office", walk.title)
         assertEquals("700 m", walk.distance)
+    }
+}
+
+class TimelineOngoingTest {
+    private fun seg(end: String) = TimelineSegmentDto("STAY", "2026-11-08T01:00:00Z", end, 600, latitude = 0.0, longitude = 0.0)
+
+    @Test
+    fun `only the newest entry of today that is still recent is happening now`() {
+        val end = java.time.Instant.parse("2026-11-08T03:00:00Z")
+        val now = end.plusSeconds(5 * 60).toEpochMilli()
+        val items = buildItems(listOf(seg("2026-11-08T02:00:00Z"), seg("2026-11-08T03:00:00Z")), ZoneOffset.UTC, now, today = true)
+        assertEquals(listOf(false, true), items.map { it.ongoing })
+        assertEquals(listOf(false, false), buildItems(listOf(seg("2026-11-08T02:00:00Z"), seg("2026-11-08T03:00:00Z")), ZoneOffset.UTC, now, today = false).map { it.ongoing })
+        assertEquals(false, buildItems(listOf(seg("2026-11-08T03:00:00Z")), ZoneOffset.UTC, end.plusSeconds(3600).toEpochMilli(), today = true).single().ongoing)
     }
 }

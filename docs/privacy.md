@@ -21,7 +21,7 @@ Location is the most sensitive data Locana handles. This document describes what
 | Password hash (Argon2id) | `User` | Nobody can read it back | Sign-in | Until deletion or change |
 | Refresh token hashes, device names | `UserSession` | The user (device list) | Sessions, revocation | Usable for 30 days; rows deleted 7 days after expiry or revocation |
 | Latest position (lat, lon, accuracy, speed, bearing, battery) | `LatestLocation` | The user; members allowed by the rules above | Live map | Overwritten by each new fix; deleted when sharing and exploration are both off, and on account deletion |
-| Location history | `LocationHistory` | The user only | Personal trail (opt-in) | User's choice 1-30 days, capped by `LOCATION_HISTORY_RETENTION_DAYS`; deleted when turned off |
+| Location history | `LocationHistory` | The user, and circle members who can see them (places and trips) | Timeline of stays and trips (on by default, can be turned off) | User's choice 1-30 days, capped by `LOCATION_HISTORY_RETENTION_DAYS`; deleted when turned off |
 | Saved places | `SavedPlace` | Members of that circle | Arrival and departure alerts | Until deleted, or the circle is deleted |
 | Geofence state and events | `GeofenceState`, `GeofenceEvent` | Server only (alerts go to authorized members) | Duplicate suppression | Until the place or account is deleted |
 | Exploration tiles, landmark visits | `TileDiscovery`, `LandmarkVisit` | The user only (circles see totals if allowed) | Game | Until account deletion |

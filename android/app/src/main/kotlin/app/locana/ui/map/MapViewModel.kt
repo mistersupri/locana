@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -105,6 +107,7 @@ class MapViewModel @Inject constructor(
     private val selection: CircleSelection,
     val tracking: TrackingController,
     private val signals: DeviceSignals,
+    private val heading: app.locana.data.system.HeadingSensor,
 ) : ViewModel() {
     /** Unread notifications, for the badge on the bell. */
     val unread: StateFlow<Int> = notifications.unread
@@ -119,14 +122,24 @@ class MapViewModel @Inject constructor(
      * phone's own newest fix and battery: your own pin should be where you are now, not where the
      * last upload happened to be.
      */
-    private data class Tick(val now: Long, val fix: android.location.Location?, val batteryPct: Int?)
+    private data class Tick(val now: Long, val fix: android.location.Location?, val previous: android.location.Location?, val batteryPct: Int?)
+
+    private var lastFix: android.location.Location? = null
 
     private val clock = flow {
         while (true) {
-            emit(Tick(System.currentTimeMillis(), ownFix(), signals.battery().pct))
+            val fix = ownFix()
+            val previous = lastFix
+            if (fix != null) lastFix = fix
+            emit(Tick(System.currentTimeMillis(), fix, previous, signals.battery().pct))
             delay(15_000)
         }
     }
+
+    /** This phone's compass, only while the map is on screen. */
+    private val compass = flow<Float?> { emitAll(heading.live { lastFix }) }
+
+    private data class Live(val tick: Tick, val heading: Float?)
 
     @SuppressLint("MissingPermission")
     private suspend fun ownFix(): android.location.Location? {
@@ -140,8 +153,9 @@ class MapViewModel @Inject constructor(
         combine(circles.circles, selection.selected, detail, location.sharing, settings.settings) { c, sel, d, sh, st ->
             Base(c?.value.orEmpty(), sel, d, sh, st.layers)
         },
-        pins, clock, overlay, status,
-    ) { base, rows, tick, ov, st ->
+        pins, combine(clock, compass.onStart { emit(null) }) { t, h -> Live(t, h) }, overlay, status,
+    ) { base, rows, live, ov, st ->
+        val tick = live.tick
         val now = tick.now
         val sel = base.selected
         val d = base.detail?.takeIf { it.id == sel }
@@ -156,7 +170,10 @@ class MapViewModel @Inject constructor(
             // Own pin: prefer this phone's own fix when it is newer than what the server has.
             val own = tick.fix?.takeIf { isMe && it.time >= (r?.recordedAtMs ?: 0L) && now - it.time < 10 * 60_000 }
             val recordedAt = own?.time ?: r?.recordedAtMs
-            val staying = r?.movement == "STAYING" && own == null
+            // Moving needs a recent, precise fix whose speed is backed by a real step since the last one.
+            val step = if (own != null && tick.previous != null) own.distanceTo(tick.previous).toDouble() else 0.0
+            val ownMoving = own != null && now - own.time <= 90_000 && own.hasSpeed() && own.speed >= 1.5f && own.accuracy <= 30f && step >= 15.0 && r?.movement != "STAYING"
+            val movement = if (own != null) (if (ownMoving) "MOVING" else r?.movement?.takeIf { it == "STAYING" } ?: "UNKNOWN") else r?.movement
             MemberPin(
                 userId = m.userId,
                 name = m.displayName,
@@ -167,10 +184,11 @@ class MapViewModel @Inject constructor(
                 lat = own?.latitude ?: r?.latitude, lon = own?.longitude ?: r?.longitude, accuracyM = own?.accuracy?.toDouble() ?: r?.accuracyM,
                 recordedAtMs = recordedAt,
                 batteryPct = if (isMe) tick.batteryPct ?: r?.batteryPct else r?.batteryPct,
-                bearingDeg = own?.takeIf { it.hasBearing() }?.bearing?.toDouble() ?: r?.bearingDeg,
-                speedMps = own?.takeIf { it.hasSpeed() }?.speed?.toDouble() ?: r?.speedMps,
-                movement = if (own != null && own.hasSpeed() && own.speed >= 1f) "MOVING" else r?.movement,
-                stationarySinceMs = if (r?.movement == "STAYING" || staying) r?.stationarySinceMs else null,
+                // Your own pin points where your phone points, live; others show the heading of their last upload.
+                bearingDeg = if (isMe) live.heading?.toDouble() ?: own?.takeIf { it.hasBearing() && ownMoving }?.bearing?.toDouble() ?: r?.bearingDeg else r?.bearingDeg,
+                speedMps = if (ownMoving) own?.speed?.toDouble() else if (own != null) null else r?.speedMps,
+                movement = movement,
+                stationarySinceMs = if (r?.movement == "STAYING" && movement == "STAYING") r.stationarySinceMs else null,
                 isMe = isMe,
                 hiddenFromThem = m.userId in d.hiddenFromViewerIds,
                 blockedByMe = m.blockedByMe,
@@ -257,7 +275,7 @@ class MapViewModel @Inject constructor(
             // Ignore an answer for a person or day the sheet has already moved away from.
             _focus.update { cur ->
                 if (cur?.userId != f.userId || cur.day != f.day) cur
-                else cur.copy(items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments)) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
+                else cur.copy(items = r.fold({ app.locana.ui.components.UiState.Data(app.locana.ui.timeline.buildItems(it.segments, today = f.day == java.time.LocalDate.now())) }, { app.locana.ui.components.UiState.Error(it.message ?: "Couldn't load places and trips") }))
             }
         }
     }

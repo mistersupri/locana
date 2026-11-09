@@ -10,6 +10,8 @@ import java.time.format.DateTimeFormatter
 sealed interface TimelineItem {
     val range: String
     val duration: String
+    /** The newest entry of today, still going on. */
+    val ongoing: Boolean
 
     data class Stay(
         val title: String,
@@ -18,6 +20,7 @@ sealed interface TimelineItem {
         val emoji: String,
         val latitude: Double?,
         val longitude: Double?,
+        override val ongoing: Boolean = false,
     ) : TimelineItem
 
     data class Trip(
@@ -30,6 +33,7 @@ sealed interface TimelineItem {
         val driving: Boolean,
         val emoji: String,
         val path: List<Pair<Double, Double>>,
+        override val ongoing: Boolean = false,
     ) : TimelineItem
 }
 
@@ -44,11 +48,18 @@ private fun placeEmoji(type: String?) = when (type) {
 }
 
 /** Turns segments into cards. A trip is named after the saved places on either side when there are any. */
-fun buildItems(segments: List<TimelineSegmentDto>, zone: ZoneId = ZoneId.systemDefault()): List<TimelineItem> {
+fun buildItems(
+    segments: List<TimelineSegmentDto>,
+    zone: ZoneId = ZoneId.systemDefault(),
+    nowMs: Long = System.currentTimeMillis(),
+    today: Boolean = false,
+): List<TimelineItem> {
     fun time(iso: String) = clock.format(Instant.parse(iso).atZone(zone))
     return segments.mapIndexed { i, s ->
         val range = "${time(s.startedAt)} – ${time(s.endedAt)}"
         val duration = Formatting.duration(s.durationSec * 1000L)
+        // Fixes arrive every couple of minutes, so "still going" means the last one is recent.
+        val ongoing = today && i == segments.lastIndex && nowMs - Instant.parse(s.endedAt).toEpochMilli() <= 15 * 60_000
         if (s.type == "STAY") {
             TimelineItem.Stay(
                 title = s.place?.name ?: "Stayed in one place",
@@ -57,6 +68,7 @@ fun buildItems(segments: List<TimelineSegmentDto>, zone: ZoneId = ZoneId.systemD
                 emoji = placeEmoji(s.place?.type),
                 latitude = s.latitude,
                 longitude = s.longitude,
+                ongoing = ongoing,
             )
         } else {
             val from = segments.getOrNull(i - 1)?.takeIf { it.type == "STAY" }?.place?.name
@@ -77,6 +89,7 @@ fun buildItems(segments: List<TimelineSegmentDto>, zone: ZoneId = ZoneId.systemD
                 driving = driving,
                 emoji = if (driving) "🚗" else "🚶",
                 path = s.path.mapNotNull { if (it.size >= 2) it[0] to it[1] else null },
+                ongoing = ongoing,
             )
         }
     }

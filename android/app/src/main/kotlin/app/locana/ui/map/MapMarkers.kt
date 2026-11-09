@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 
 /** Walking pace and above this speed (m/s, about 20 km/h) reads as driving. */
 private const val DRIVING_MPS = 5.5
+private const val MOVING_MPS = 1.5
 
 /** The saved place the person is standing in, if any. */
 internal fun placeAt(m: MemberPin, places: List<PlaceDto>): PlaceDto? {
@@ -49,9 +50,11 @@ internal fun captionFor(m: MemberPin, place: PlaceDto?, nowMs: Long): Caption {
         m.presence == Presence.STALE && m.recordedAtMs != null -> Caption("Last seen", Freshness.ageLabel(m.recordedAtMs, nowMs), null)
         m.movement == "STAYING" && m.stationarySinceMs != null ->
             Caption("Here for", Formatting.duration(nowMs - m.stationarySinceMs), placeEmoji(place?.type))
-        m.movement == "MOVING" || speed >= 1.0 -> when {
-            speed >= DRIVING_MPS -> Caption("Driving", Formatting.speedKmh(speed), "🚗")  // car
-            else -> Caption("Walking", Formatting.speedKmh(speed.coerceAtLeast(0.0)), "🚶")  // person walking
+        // Only a movement state both ends agreed on counts; a lone speed reading is noise.
+        m.movement == "MOVING" -> when {
+            speed >= DRIVING_MPS -> Caption("Driving", Formatting.speedKmh(speed), "🚗")
+            speed >= MOVING_MPS -> Caption("Walking", Formatting.speedKmh(speed), "🚶")
+            else -> Caption("Moving", "on the move", "🚶")
         }
         else -> Caption(null, null, null)
     }
@@ -94,7 +97,7 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
         val state = remember(m.userId) { MarkerState(position) }
         state.position = position
         val heading = m.bearingDeg
-        if (heading != null && m.presence == Presence.LIVE && (m.movement == "MOVING" || (m.speedMps ?: 0.0) >= 0.5)) {
+        if (heading != null && m.presence == Presence.LIVE) {
             Marker(
                 state = remember(m.userId + "cone") { MarkerState(position) }.also { it.position = position },
                 icon = cone,

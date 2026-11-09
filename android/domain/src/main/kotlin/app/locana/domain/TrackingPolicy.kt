@@ -54,7 +54,9 @@ object TrackingPolicy {
 
         var plan = when {
             critical -> TrackingPlan(true, c.lowBatteryMs, c.lowBatteryMs / 2, 100f, Accuracy.LOW_POWER, 600_000, "battery critical")
-            !i.moving -> TrackingPlan(true, c.stationaryMs, c.stationaryMs / 2, 50f, Accuracy.BALANCED, 300_000, "stationary")
+            // No distance filter while still: a phone that stays put must keep checking in, otherwise its circle
+            // sees it as old after ten minutes and a stay at home or at work never gets a length.
+            !i.moving -> TrackingPlan(true, c.stationaryMs, c.stationaryMs / 2, 0f, Accuracy.BALANCED, 300_000, "stationary")
             i.appInForeground -> TrackingPlan(true, c.foregroundMovingMs, c.foregroundMovingMs / 2, 10f, Accuracy.HIGH, 0, "moving, app open")
             else -> TrackingPlan(
                 true,
@@ -92,7 +94,8 @@ object MovementDetector {
      */
     fun isMoving(recent: List<Fix>, windowMs: Long = 180_000): Boolean {
         val last = recent.maxByOrNull { it.timeMs } ?: return true
-        if ((last.speedMps ?: 0f) > 0.7f) return true
+        // A single speed reading is noisy indoors; only a decent fix with a clear speed counts.
+        if ((last.speedMps ?: 0f) > 1.2f && last.accuracyM <= 30f) return true
         val window = recent.filter { last.timeMs - it.timeMs in 1..windowMs }
         if (window.isEmpty()) return true
         return window.any {

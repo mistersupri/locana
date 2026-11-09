@@ -60,4 +60,18 @@ class TrackingPolicyTest {
         val walked = listOf(Fix(-6.2, 106.8, 10f, t - 120_000, null), Fix(-6.2009, 106.8, 10f, t, null))
         assertTrue(MovementDetector.isMoving(walked))
     }
+
+    @Test
+    fun `a still phone keeps checking in without a distance filter`() {
+        val p = TrackingPolicy.plan(TrackingInputs(true, false, false, moving = false, batteryPct = 80, charging = false, powerSaveMode = false, online = true))
+        assertEquals(0f, p.minDistanceM, 0f)
+        assertEquals(120_000L, p.intervalMs)
+    }
+
+    @Test
+    fun `one noisy speed reading does not make a still phone moving`() {
+        val t = 1_000_000L
+        val fixes = listOf(Fix(-6.2, 106.8, 10f, t - 60_000, null), Fix(-6.2, 106.8, 40f, t, 2.8f))
+        assertEquals(false, MovementDetector.isMoving(fixes))
+    }
 }

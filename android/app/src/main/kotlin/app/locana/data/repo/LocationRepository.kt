@@ -121,14 +121,17 @@ class LocationRepository @Inject constructor(
                 val sameSpot = before?.latitude != null && before.longitude != null && lat != null && lon != null &&
                     app.locana.domain.Geo.distanceM(app.locana.domain.LatLon(before.latitude, before.longitude), app.locana.domain.LatLon(lat, lon)) <= 100
                 val speed = e.data.d("speedMps")
+                val accuracy = e.data.d("accuracyM")
                 val since = if (sameSpot) before?.stationarySinceMs ?: before?.recordedAtMs else null
+                val step = if (before?.latitude != null && before.longitude != null && lat != null && lon != null)
+                    app.locana.domain.Geo.distanceM(app.locana.domain.LatLon(before.latitude, before.longitude), app.locana.domain.LatLon(lat, lon)) else 0.0
+                // Same rules as the server: staying after 5 quiet minutes; moving only when a clear speed is backed by a real step.
                 val movement = when {
                     since != null && at != null && at - since >= 5 * 60_000 -> "STAYING"
-                    speed != null && speed >= 1.0 -> "MOVING"
-                    !sameSpot && before != null -> "MOVING"
-                    else -> before?.movement ?: "UNKNOWN"
+                    speed != null && speed >= 1.5 && step >= 25 && (accuracy ?: 0.0) <= 30 -> "MOVING"
+                    else -> "UNKNOWN"
                 }
-                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", lat, lon, e.data.d("accuracyM"), at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis(), speed, e.data.d("bearingDeg"), movement, if (movement == "STAYING") since else null)))
+                db.members().upsert(listOf(CachedMemberLocation(circleId, userId, "LIVE", lat, lon, accuracy, at, e.data["batteryPct"]?.jsonPrimitive?.intOrNull, System.currentTimeMillis(), speed, e.data.d("bearingDeg"), movement, if (movement == "STAYING") since else null)))
             }
             "member.availability" -> {
                 val circleId = e.data.s("circleId") ?: return

@@ -21,6 +21,10 @@ export const MAX_ACCURACY_M = 150;
 const MAX_PATH_POINTS = 120;
 /** Average speed (km/h) above which a trip counts as a vehicle trip rather than a walk. */
 const VEHICLE_KMH = 9;
+const MOVING_MIN_SPEED_MPS = 1.5;
+const MOVING_MIN_STEP_M = 25;
+const MOVING_MAX_ACCURACY = 30;
+const MOVING_LOOKBACK_MS = 10 * 60_000;
 
 export type TimelineMode = 'WALK' | 'DRIVE';
 
@@ -154,10 +158,13 @@ export function currentMovement(latest: TimelinePoint, history: TimelinePoint[])
   }
   const staying = latest.recordedAt.getTime() - since.getTime() >= STAY_MIN_MS;
   if (staying) return { state: 'STAYING', since };
-  const speed = latest.speedMps ?? null;
-  if (speed != null && speed >= 1) return { state: 'MOVING', since: null };
-  if (earlier.length === 0) return { state: 'UNKNOWN', since: null };
-  const last = earlier[earlier.length - 1];
-  const d = haversineM(latest.latitude, latest.longitude, last.latitude, last.longitude);
-  return d > STAY_RADIUS_M / 2 ? { state: 'MOVING', since: null } : { state: 'UNKNOWN', since: null };
+  // Moving needs two things to agree: a real step since the previous fix, and a speed that fits it.
+  // A noisy speed reading from a phone lying on a desk is not movement.
+  if (latest.accuracyM > MOVING_MAX_ACCURACY || earlier.length === 0) return { state: 'UNKNOWN', since: null };
+  const prev = earlier[earlier.length - 1];
+  const dt = (latest.recordedAt.getTime() - prev.recordedAt.getTime()) / 1000;
+  if (dt <= 0 || dt * 1000 > MOVING_LOOKBACK_MS) return { state: 'UNKNOWN', since: null };
+  const step = haversineM(latest.latitude, latest.longitude, prev.latitude, prev.longitude);
+  const speed = latest.speedMps ?? step / dt;
+  return step >= MOVING_MIN_STEP_M && speed >= MOVING_MIN_SPEED_MPS ? { state: 'MOVING', since: null } : { state: 'UNKNOWN', since: null };
 }

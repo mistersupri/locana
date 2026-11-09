@@ -73,6 +73,18 @@ describe('currentMovement', () => {
     expect(currentMovement(pt(5, 0, { speedMps: 8 }), [pt(4, 0.0003)]).state).toBe('MOVING');
   });
 
+  it('ignores a noisy speed reading when the phone has not moved', () => {
+    expect(currentMovement(pt(5, 0.00002, { speedMps: 3 }), [pt(4)]).state).toBe('UNKNOWN');
+  });
+
+  it('does not trust a speed from an imprecise fix', () => {
+    expect(currentMovement(pt(5, 0.003, { speedMps: 9, accuracyM: 80 }), [pt(4)]).state).toBe('UNKNOWN');
+  });
+
+  it('moves when the step and the speed agree, even without a device speed', () => {
+    expect(currentMovement(pt(5, 0.001), [pt(4)]).state).toBe('MOVING'); // about 111 m in a minute
+  });
+
   it('is unknown without history', () => {
     expect(currentMovement(pt(5), [])).toEqual({ state: 'UNKNOWN', since: null });
   });

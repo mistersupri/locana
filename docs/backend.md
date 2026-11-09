@@ -80,7 +80,7 @@ Last run in this repository: 38 unit tests and 34 end-to-end tests passed. The e
 
 ## Location sharing and the timeline
 
-Reading `GET /v1/sharing` opens an open-ended session for every circle the user belongs to (except ones they stopped on purpose). `GET /v1/circles/:id/locations` adds `movement` (`STAYING`, `MOVING` or `UNKNOWN`) and `stationarySince` to each location, worked out from the last 12 hours of history: a stay is at least 5 minutes within 100 m. `GET /v1/circles/:id/members/:userId/timeline?day=YYYY-MM-DD&tzOffsetMinutes=420` returns that local day as stays (with the matching saved place) and trips (distance, speed, walk or drive, a downsampled path). The logic is in `src/location/timeline.ts` with unit tests.
+Reading `GET /v1/sharing` opens an open-ended session for every circle the user belongs to (except ones they stopped on purpose). `GET /v1/circles/:id/locations` adds `movement` (`STAYING`, `MOVING` or `UNKNOWN`) and `stationarySince` to each location, worked out from the last 12 hours of history: a stay is at least 5 minutes within 100 m; moving needs a precise fix (30 m or better) whose speed is at least 1.5 m/s and a step of at least 25 m since the previous fix, so one noisy speed reading never counts as walking. History is on by default (`historyEnabled`), and a migration turned it on for existing accounts. `GET /v1/circles/:id/members/:userId/timeline?day=YYYY-MM-DD&tzOffsetMinutes=420` returns that local day as stays (with the matching saved place) and trips (distance, speed, walk or drive, a downsampled path). The logic is in `src/location/timeline.ts` with unit tests.
 
 ## Profile photos
 

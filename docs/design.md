@@ -67,3 +67,7 @@ Member markers are drawn directly onto bitmaps at the screen density, so edges s
 ### Update: one map screen, no profile tab
 
 The Profile tab is gone: the gear on the map opens the profile page (photo, edit, notifications, privacy, account, theme, sign out). There is no location sharing page, because sharing is automatic. Tapping a pin or a member row focuses that person: the sheet opens with their name, battery, what they are doing (at a place since when, driving, walking) and their day of stays and trips with route maps, and the camera lifts their pin above the sheet. The back arrow returns to the circle. Photos replace initials in avatars and in pins. The light map style now shows place names and icons.
+
+### Update: honest movement and heading
+
+The badge and the "Walking" bubble need two independent signals to agree (a clear speed and a real step), on the phone and on the server, so a phone lying on a desk is never shown as walking. A still phone now checks in every two minutes without a distance filter, which is what gives stays a length and keeps the pin live. The beam under a pin follows the phone's compass: your own pin turns live, others show the heading of their last upload (GPS bearing while travelling, compass otherwise). Timeline cards say "Stayed 3 hrs, 52 mins" and mark the newest entry "Happening now".

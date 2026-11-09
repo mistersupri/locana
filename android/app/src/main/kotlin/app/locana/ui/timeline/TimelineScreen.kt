@@ -109,7 +109,11 @@ internal fun StayCard(s: TimelineItem.Stay) {
             Emoji(s.emoji)
             Column(Modifier.padding(start = 16.dp).weight(1f)) {
                 Text(s.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("${s.range} · ${s.duration}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(s.range, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Stayed ${s.duration}")
+                    if (s.ongoing) Chip("Happening now", highlight = true)
+                }
             }
         }
     }
@@ -131,6 +135,7 @@ internal fun TripCard(t: TimelineItem.Trip) {
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("Took ${t.duration}")
+                    if (t.ongoing) Chip("Happening now", highlight = true)
                     Chip("avg ${t.avgSpeed}")
                     if (t.driving) Chip("top ${t.maxSpeed}")
                 }
@@ -140,8 +145,12 @@ internal fun TripCard(t: TimelineItem.Trip) {
 }
 
 @Composable
-private fun Chip(text: String) {
-    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+private fun Chip(text: String, highlight: Boolean = false) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (highlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = if (highlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+    ) {
         Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
     }
 }

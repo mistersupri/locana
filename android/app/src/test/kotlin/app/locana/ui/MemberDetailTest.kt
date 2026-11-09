@@ -3,7 +3,7 @@ package app.locana.ui
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.locana.data.PhotoPrep
@@ -26,9 +26,10 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class MemberDetailTest {
-    @get:Rule val rule = createComposeRule()
+    @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
 
     private val now = 1_800_000_000_000L
     private fun pin(movement: String?, since: Long? = null, speed: Double? = null, presence: Presence = Presence.LIVE, isMe: Boolean = false, lat: Double? = -6.2) = MemberPin(
@@ -77,6 +78,15 @@ class MemberDetailTest {
         rule.onNodeWithText("65%").assertIsDisplayed()
         rule.onNodeWithText("At Lina Home").assertIsDisplayed()
         rule.onNodeWithText("Today").assertIsDisplayed()
+        rule.onNodeWithText("Stayed 7 hrs, 15 mins").assertIsDisplayed()
+        val dir = java.io.File(System.getenv("LOCANA_SHOTS_DIR") ?: "build/shots").apply { mkdirs() }
+        rule.waitForIdle()
+        rule.activityRule.scenario.onActivity { a: androidx.activity.ComponentActivity ->
+            val v = a.window.decorView
+            val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
+            v.draw(android.graphics.Canvas(b))
+            java.io.File(dir, "member-detail.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
     }
 
     @Test
