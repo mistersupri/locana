@@ -123,6 +123,7 @@ export class UsersService {
       notifyQuests: p.notifyQuests,
       notifyAchievements: p.notifyAchievements,
       notifyCircle: p.notifyCircle,
+      notifyTrips: p.notifyTrips,
     };
   }
 

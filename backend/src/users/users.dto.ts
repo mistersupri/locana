@@ -48,6 +48,7 @@ export class PrivacyDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() notifyQuests?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() notifyAchievements?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() notifyCircle?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() notifyTrips?: boolean;
 }
 
 export class DeleteAccountDto {

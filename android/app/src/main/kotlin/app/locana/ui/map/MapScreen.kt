@@ -453,6 +453,38 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                 }
             }
 
+            // Safety: hold SOS, and while someone else is in focus, quick messages to them.
+            // Just above the drawer wherever it has settled (peek, or taller while someone is in focus).
+            val overSheet = if (visibleBottomPad > 0.dp) visibleBottomPad + 16.dp else above
+            val sosState by vm.sosState.collectAsStateWithLifecycle()
+            val quickMessages by vm.quickMessages.collectAsStateWithLifecycle()
+            val quickResult by vm.quickResult.collectAsStateWithLifecycle()
+            app.locana.ui.safety.SosButton(
+                onTriggered = vm::sendSos,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = overSheet + (if (focusedId == null) 64.dp else 0.dp)).size(52.dp),
+            )
+            app.locana.ui.safety.SosDialog(sosState, onDismiss = vm::dismissSos, onRetry = vm::sendSos)
+            val focusedOther = ui.members.firstOrNull { it.userId == focusedId && !it.isMe && !it.blockedByMe }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = focusedOther != null,
+                modifier = Modifier.align(Alignment.BottomStart),
+                enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(0.7f, 420f)) { it } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically(Motion.enter(180)) { it } + androidx.compose.animation.fadeOut(Motion.enter(140)),
+            ) {
+                var lastOther by remember { mutableStateOf(focusedOther) }
+                if (focusedOther != null) lastOther = focusedOther
+                val target = focusedOther ?: lastOther
+                Column(Modifier.padding(start = 16.dp, end = 80.dp, bottom = overSheet)) {
+                    quickResult?.let { r ->
+                        LaunchedEffect(r) { delay(2_400); vm.quickResultShown() }
+                        Surface(shape = RoundedCornerShape(14.dp), color = LocalTokens.current.card, shadowElevation = 6.dp, modifier = Modifier.padding(bottom = 8.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }) {
+                            Text(r, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        }
+                    }
+                    if (target != null) app.locana.ui.safety.QuickMessageRow(quickMessages, onSend = { vm.sendQuick(target.userId, target.name, it) })
+                }
+            }
+
             // Right: map layers, just above the sheet.
             if (focusedId == null) MapControl(onClick = { layersOpen = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = above)) {
                 Icon(Icons.Outlined.Layers, contentDescription = "Map layers")

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.PersonOff
+import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.GridView
@@ -194,6 +195,7 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
             Spacer(Modifier.height(12.dp))
         }
         item {
+            NavItem("Safety", "SOS, emergency contacts, crash detection", icon = Icons.Outlined.HealthAndSafety, tile = tk.coralSoft, tint = tk.coralDark) { nav.navigate(Routes.SAFETY) }
             NavItem("Notifications", "Arrivals, quests and circle news", badge = unread, icon = Icons.Outlined.Notifications, tile = tk.yellowSoft, tint = tk.yellowDark) { nav.navigate(Routes.NOTIFICATIONS) }
             NavItem("Privacy", "History, exploration, rankings, alerts", icon = Icons.Outlined.VisibilityOff, tile = tk.mintSoft, tint = app.locana.ui.theme.LocalTokens.current.onMint) { nav.navigate(Routes.PRIVACY) }
             NavItem("Account and security", "Password, devices, your data, delete account", icon = Icons.Outlined.Shield, tile = MaterialTheme.colorScheme.primaryContainer, tint = MaterialTheme.colorScheme.primary) { nav.navigate(Routes.ACCOUNT) }
@@ -333,6 +335,7 @@ fun PrivacyScreen(nav: NavController, vm: PrivacyViewModel = hiltViewModel()) {
                         ToggleRow("Quests", null, p.notifyQuests) { vm.patch(PrivacyPatch(notifyQuests = it)) }
                         ToggleRow("Levels and achievements", null, p.notifyAchievements) { vm.patch(PrivacyPatch(notifyAchievements = it)) }
                         ToggleRow("Circle activity and invitations", null, p.notifyCircle) { vm.patch(PrivacyPatch(notifyCircle = it)) }
+                        ToggleRow("Long trips", "When someone in your circles is on a long drive or ride", p.notifyTrips) { vm.patch(PrivacyPatch(notifyTrips = it)) }
                     }
                 }
                 Text(

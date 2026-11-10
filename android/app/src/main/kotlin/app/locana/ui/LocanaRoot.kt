@@ -93,6 +93,7 @@ fun LocanaRoot(deepLink: MutableStateFlow<DeepLink?>, vm: RootViewModel = hiltVi
                         if (link != null) deepLink.value = null
                     }
                     LevelUpHost()
+                    app.locana.ui.safety.QuickMessageHost(vm.incoming)
                 }
             }
         }

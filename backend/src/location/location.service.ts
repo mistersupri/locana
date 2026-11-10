@@ -6,6 +6,7 @@ import { ApiError } from '../common/errors';
 import { haversineM } from '../common/geo';
 import { APP_ENV, AppEnv } from '../config/env';
 import { ExplorationService, TrustedSample } from '../game/exploration.service';
+import { SafetyService } from '../safety/safety.service';
 import { SharingService } from './sharing.service';
 import { PlacesService } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,6 +30,7 @@ export class LocationService {
     private readonly bus: RealtimeBus,
     private readonly places: PlacesService,
     private readonly sharingSessions: SharingService,
+    private readonly safety: SafetyService,
     private readonly exploration: ExplorationService,
     @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
@@ -127,6 +129,8 @@ export class LocationService {
           accepted.map((s) => ({ lat: s.latitude, lon: s.longitude, accuracyM: s.accuracyM, at: s.at })),
         );
         await this.broadcast(userId, newest, await this.movementNow(userId, newest));
+        // A trip that has grown long tells the circle once; a failure here must never fail the upload.
+        await this.safety.checkLongTrip(userId).catch((e) => this.log.warn(`long trip check failed: ${(e as Error).message}`));
       }
     }
 

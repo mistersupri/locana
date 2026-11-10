@@ -25,6 +25,8 @@ class Notifier @Inject constructor(@ApplicationContext private val context: Cont
         const val CH_CIRCLE = "circle"
         const val CH_GAME = "game"
         const val CH_SECURITY = "security"
+        const val CH_SAFETY = "safety"
+        const val CRASH_ID = 1002
         const val TRACKING_ID = 1001
     }
 
@@ -40,6 +42,8 @@ class Notifier @Inject constructor(@ApplicationContext private val context: Cont
                     .apply { description = context.getString(R.string.channel_game_desc) },
                 NotificationChannel(CH_SECURITY, context.getString(R.string.channel_security), NotificationManager.IMPORTANCE_HIGH)
                     .apply { description = context.getString(R.string.channel_security_desc) },
+                NotificationChannel(CH_SAFETY, context.getString(R.string.channel_safety), NotificationManager.IMPORTANCE_HIGH)
+                    .apply { description = context.getString(R.string.channel_safety_desc); enableVibration(true) },
             ),
         )
     }
@@ -59,6 +63,8 @@ class Notifier @Inject constructor(@ApplicationContext private val context: Cont
         "ARRIVAL", "CIRCLE", "CHALLENGE", "INVITATION" -> CH_CIRCLE
         "QUEST", "LEVEL_UP", "ACHIEVEMENT" -> CH_GAME
         "SHARING" -> CH_SHARING
+        "SOS" -> CH_SAFETY
+        "QUICK_MESSAGE", "TRIP" -> CH_CIRCLE
         else -> CH_SECURITY
     }
 
@@ -77,4 +83,32 @@ class Notifier @Inject constructor(@ApplicationContext private val context: Cont
             // permission revoked between the check and the call
         }
     }
+
+    /** The crash question: full screen over the lock screen, with an "I'm OK" action that works without unlocking. */
+    fun postCrashAlert() {
+        if (!canPost()) return
+        val open = PendingIntent.getActivity(
+            context, 20, Intent(context, app.locana.data.safety.CrashAlertActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val ok = PendingIntent.getBroadcast(
+            context, 21, Intent(context, app.locana.data.safety.CrashCancelReceiver::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(context, CH_SAFETY)
+            .setSmallIcon(R.drawable.ic_stat_locana)
+            .setContentTitle("Are you okay?")
+            .setContentText("A hard impact was detected. SOS is sent in 15 seconds unless you answer.")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setFullScreenIntent(open, true)
+            .setContentIntent(open)
+            .addAction(0, "I'm OK", ok)
+            .build()
+        try { NotificationManagerCompat.from(context).notify(CRASH_ID, n) } catch (_: SecurityException) {}
+    }
+
+    fun cancelCrashAlert() = NotificationManagerCompat.from(context).cancel(CRASH_ID)
 }

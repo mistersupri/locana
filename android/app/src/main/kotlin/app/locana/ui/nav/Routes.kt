@@ -51,6 +51,7 @@ object Routes {
     const val PROFILE_EDIT = "profile/edit"
     const val PRIVACY = "settings/privacy"
     const val ACCOUNT = "settings/account"
+    const val SAFETY = "settings/safety"
     const val BLOCKED = "settings/blocked"
 
     val tabs = listOf(MAP, EXPLORE, PLAY, CIRCLE)

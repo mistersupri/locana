@@ -279,6 +279,7 @@ class AppFlowTest {
         check(compose.onAllNodesWithText("Location sharing").fetchSemanticsNodes().isEmpty()) { "profile still offers a sharing page" }
         shot("19-profile")
         visit("Edit profile", "19a-edit-profile")
+        visit("Safety", "19f-safety")
         visit("Notifications", "19b-notifications")
         visit("Account and security", "19c-account")
         visit("Blocked people", "19d-blocked")

@@ -16,6 +16,7 @@ import { LocationModule } from './location/location.module';
 import { PlacesModule } from './places/places.module';
 import { PrismaModule } from './prisma/prisma.service';
 import { RealtimeModule } from './realtime/realtime.module';
+import { SafetyModule } from './safety/safety.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     PlacesModule,
     GameModule,
     RealtimeModule,
+    SafetyModule,
   ],
   controllers: [HealthController, AdminController],
   providers: [

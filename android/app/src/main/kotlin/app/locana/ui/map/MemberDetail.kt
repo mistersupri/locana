@@ -113,7 +113,7 @@ internal fun MemberDetail(
                 else -> Triple(MaterialTheme.colorScheme.primaryContainer, Color.White, "compass")
             }
             Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(180.dp).clip(RoundedCornerShape(28.dp)).background(cardBrush(c1, c2))) {
-                Column(Modifier.align(Alignment.CenterStart).padding(start = 20.dp).fillMaxWidth(0.58f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.align(Alignment.CenterStart).padding(start = 20.dp).fillMaxWidth(0.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }?.let { BatteryChip(it) }
                     Text(
                         (if (m.isMe) "You · " else "") + status.title,
@@ -121,10 +121,10 @@ internal fun MemberDetail(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(status.subtitle, style = MaterialTheme.typography.bodySmall, color = t.ink2)
+                    Text(status.subtitle, style = MaterialTheme.typography.bodySmall, color = t.ink2, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                Box(Modifier.align(Alignment.CenterEnd).padding(end = 18.dp).size(124.dp).clip(RoundedCornerShape(32.dp)).border(4.dp, Color.White, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
-                    Illustration(art, size = 100.dp)
+                Box(Modifier.align(Alignment.CenterEnd).padding(end = 16.dp).size(112.dp).clip(RoundedCornerShape(30.dp)).border(4.dp, Color.White, RoundedCornerShape(30.dp)), contentAlignment = Alignment.Center) {
+                    Illustration(art, size = 90.dp)
                 }
             }
         }
@@ -139,7 +139,7 @@ internal fun MemberDetail(
                     EmptyState(
                         if (focus.points > 0) "Collecting ${dayLabel(focus.day).lowercase()}" else "Nothing recorded for ${dayLabel(focus.day).lowercase()}",
                         if (focus.points > 0) "${focus.points} positions so far. A place shows up after 10 minutes in one spot, a trip once about 30 m have been covered."
-                        else "A place is recorded after 5 minutes in one spot and a trip while travelling, once location is on and Locana has been running for a few minutes. Days older than the history limit are removed.",
+                        else "A place is recorded after 10 minutes in one spot and a trip while travelling, once location is on and Locana has been running for a few minutes. Days older than the history limit are removed.",
                     )
                 }
             } else {

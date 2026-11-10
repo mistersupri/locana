@@ -76,6 +76,7 @@ data class PrivacyDto(
     val notifyQuests: Boolean,
     val notifyAchievements: Boolean,
     val notifyCircle: Boolean,
+    val notifyTrips: Boolean = true,
 )
 
 @Serializable
@@ -103,6 +104,7 @@ data class PrivacyPatch(
     val notifyQuests: Boolean? = null,
     val notifyAchievements: Boolean? = null,
     val notifyCircle: Boolean? = null,
+    val notifyTrips: Boolean? = null,
 )
 
 @Serializable data class DeleteAccountRequest(val confirm: String = "DELETE", val password: String?)
@@ -318,3 +320,13 @@ data class TerritoryDetailDto(
 @Serializable data class NotificationDto(val id: String, val kind: String, val title: String, val body: String, val data: JsonObject = JsonObject(emptyMap()), val read: Boolean, val createdAt: String)
 @Serializable data class NotificationPageDto(val items: List<NotificationDto>, val nextCursor: String? = null, val unread: Int)
 @Serializable data class MarkReadRequest(val ids: List<String>? = null)
+
+// ── safety ──
+@Serializable data class EmergencyContactDto(val id: String? = null, val name: String, val phone: String, val email: String? = null)
+@Serializable data class SetContactsRequest(val contacts: List<EmergencyContactDto>)
+@Serializable data class SosRequest(val reason: String, val latitude: Double, val longitude: Double, val accuracyM: Double? = null)
+@Serializable data class SosCallDto(val name: String, val phone: String)
+@Serializable data class SosResultDto(val id: String, val notified: Int, val emailed: Int, val contacts: List<SosCallDto> = emptyList())
+@Serializable data class QuickMessageDefDto(val code: String, val text: String, val emoji: String)
+@Serializable data class QuickMessageRequest(val code: String)
+@Serializable data class QuickMessageResultDto(val sent: Boolean, val delivered: Boolean, val code: String, val text: String, val emoji: String)

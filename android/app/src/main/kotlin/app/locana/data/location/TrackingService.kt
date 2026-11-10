@@ -12,6 +12,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import app.locana.R
 import app.locana.data.db.PendingSample
 import app.locana.data.repo.FlushResult
@@ -55,7 +57,39 @@ class TrackingService : LifecycleService() {
     @Inject lateinit var notifier: Notifier
     @Inject lateinit var controller: TrackingController
 
+    @Inject lateinit var crash: app.locana.data.safety.CrashAlertCoordinator
+    @Inject lateinit var settingsStore: app.locana.data.prefs.SettingsStore
+
     private lateinit var fused: FusedLocationProviderClient
+    private val crashDetector = app.locana.domain.CrashDetector()
+    private var crashEnabled = true
+    private var listeningForImpact = false
+    private val impactListener = object : android.hardware.SensorEventListener {
+        override fun onSensorChanged(e: android.hardware.SensorEvent) {
+            if (e.values.size < 3) return
+            val now = System.currentTimeMillis()
+            if (crashDetector.onSample(e.values[0], e.values[1], e.values[2], now, inVehicleNow())) crash.onCrashDetected()
+        }
+        override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) = Unit
+    }
+
+    private fun inVehicleNow(): Boolean {
+        val last = recent.lastOrNull()
+        return app.locana.domain.CrashDetector.inVehicle(activity.current(), last?.speedMps, last?.let { System.currentTimeMillis() - it.timeMs } ?: Long.MAX_VALUE)
+    }
+
+    /** The accelerometer is only listened to while the person seems to be in a vehicle, so it costs nothing the rest of the day. */
+    private fun updateImpactSensor() {
+        val want = crashEnabled && inVehicleNow()
+        val sm = getSystemService(android.hardware.SensorManager::class.java) ?: return
+        if (want && !listeningForImpact) {
+            val accel = sm.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER) ?: return
+            listeningForImpact = sm.registerListener(impactListener, accel, android.hardware.SensorManager.SENSOR_DELAY_GAME)
+        } else if (!want && listeningForImpact) {
+            sm.unregisterListener(impactListener)
+            listeningForImpact = false
+        }
+    }
     private var plan: TrackingPlan = TrackingPlan.OFF
     private val recent = ArrayDeque<Fix>()
     private var tick: Job? = null
@@ -70,7 +104,7 @@ class TrackingService : LifecycleService() {
         super.onCreate()
         fused = LocationServices.getFusedLocationProviderClient(this)
         activity.start()
-        activity.onChange = { lifecycleScope.launch { replan(); maybeFlush(force = true) } }
+        activity.onChange = { lifecycleScope.launch { replan(); maybeFlush(force = true); updateImpactSensor() } }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -97,6 +131,9 @@ class TrackingService : LifecycleService() {
 
     private fun startLoop() {
         lifecycleScope.launch {
+            settingsStore.settings.map { it.crashDetection }.distinctUntilChanged().collect { crashEnabled = it; updateImpactSensor() }
+        }
+        lifecycleScope.launch {
             repo.refreshSharing()
             repo.sharing.collectLatest { s ->
                 if (s != null && !s.collectLocation) {
@@ -113,6 +150,7 @@ class TrackingService : LifecycleService() {
                 delay(60_000)
                 minutes++
                 replan()
+                updateImpactSensor()
                 maybeFlush(force = false)
                 // Catch server-side expiry or changes made on another device.
                 if (minutes % 5 == 0) repo.refreshSharing()
@@ -200,6 +238,7 @@ class TrackingService : LifecycleService() {
         )
         recent.addLast(Fix(l.latitude, l.longitude, l.accuracy, l.time, if (l.hasSpeed()) l.speed else null))
         while (recent.size > 20) recent.removeFirst()
+        updateImpactSensor()
         val wasMoving = plan.intervalMs
         replan()
         maybeFlush(force = plan.uploadBatchMs == 0L || wasMoving != plan.intervalMs)
@@ -254,12 +293,21 @@ class TrackingService : LifecycleService() {
         try { fused.removeLocationUpdates(callback) } catch (_: Exception) {}
         activity.onChange = null
         activity.stop()
+        stopImpactSensor()
         controller.markStopped()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
+    private fun stopImpactSensor() {
+        if (listeningForImpact) {
+            getSystemService(android.hardware.SensorManager::class.java)?.unregisterListener(impactListener)
+            listeningForImpact = false
+        }
+    }
+
     override fun onDestroy() {
+        stopImpactSensor()
         try { fused.removeLocationUpdates(callback) } catch (_: Exception) {}
         controller.markStopped()
         UploadWorker.schedule(this)

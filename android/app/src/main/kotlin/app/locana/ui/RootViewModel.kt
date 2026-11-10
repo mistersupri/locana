@@ -27,7 +27,9 @@ class RootViewModel @Inject constructor(
     settings: SettingsStore,
     me: MeRepository,
     val photos: app.locana.data.repo.PhotoStore,
+    incomingMessages: app.locana.data.safety.IncomingMessages,
 ) : ViewModel() {
+    val incoming = incomingMessages.flow
     val state: StateFlow<RootState> = combine(session.state, settings.settings, me.me) { s, st, m ->
         RootState(
             session = s,

@@ -14,6 +14,11 @@
     <!-- Optional: tells driving from walking from standing still. Asked on the permissions screen, never required. -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Safety: the crash question may need to wake the screen; the call permission is optional and asked only if the person wants Locana to place the emergency call itself. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application
         android:name=".LocanaApplication"
@@ -50,6 +55,15 @@
                 <data android:scheme="locana" android:host="join" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".data.safety.CrashAlertActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true" />
+        <receiver android:name=".data.safety.CrashCancelReceiver" android:exported="false" />
 
         <service
             android:name=".data.location.TrackingService"

@@ -127,6 +127,8 @@ class MapViewModel @Inject constructor(
     private val circles: CircleRepository,
     private val location: LocationRepository,
     private val game: GameRepository,
+    private val safety: app.locana.data.repo.SafetyRepository,
+    private val sosCoordinator: app.locana.data.safety.SosCoordinator,
     private val me: MeRepository,
     notifications: NotificationRepository,
     private val settings: SettingsStore,
@@ -419,6 +421,29 @@ class MapViewModel @Inject constructor(
                 if (cur == null || cur.userId != userId || cur.day != day || list == null || idx >= list.size) cur
                 else cur.copy(items = app.locana.ui.components.UiState.Data(list.toMutableList().also { l -> (l[idx] as? app.locana.ui.timeline.TimelineItem.Stay)?.let { l[idx] = it.copy(title = name, unnamed = false) } }))
             }
+        }
+    }
+
+    val sosState: StateFlow<app.locana.data.safety.SosState> = sosCoordinator.state
+    fun sendSos() = sosCoordinator.send("MANUAL")
+    fun dismissSos() = sosCoordinator.dismiss()
+
+    private val _quickMessages = MutableStateFlow<List<app.locana.data.api.QuickMessageDefDto>>(app.locana.ui.safety.DefaultQuickMessages)
+    val quickMessages: StateFlow<List<app.locana.data.api.QuickMessageDefDto>> = _quickMessages.asStateFlow()
+    private val _quickResult = MutableStateFlow<String?>(null)
+    /** "Sent ❤️ to Budi", or why it did not go. Shown briefly. */
+    val quickResult: StateFlow<String?> = _quickResult.asStateFlow()
+    fun quickResultShown() { _quickResult.value = null }
+
+    init { viewModelScope.launch { safety.quickMessages().onSuccess { if (it.isNotEmpty()) _quickMessages.value = it } } }
+
+    fun sendQuick(toUserId: String, name: String, m: app.locana.data.api.QuickMessageDefDto) {
+        val circle = selection.selected.value ?: return
+        viewModelScope.launch {
+            _quickResult.value = safety.sendQuickMessage(circle, toUserId, m.code).fold(
+                { "Sent ${m.emoji} to $name" },
+                { it.message ?: "Couldn't send" },
+            )
         }
     }
 

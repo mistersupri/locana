@@ -17,9 +17,14 @@ export type NotificationKind =
   | 'LEVEL_UP'
   | 'ACHIEVEMENT'
   | 'CIRCLE'
-  | 'CHALLENGE';
+  | 'CHALLENGE'
+  | 'SOS'
+  | 'QUICK_MESSAGE'
+  | 'TRIP';
 
-const PREF: Partial<Record<NotificationKind, 'notifyArrivals' | 'notifyQuests' | 'notifyAchievements' | 'notifyCircle'>> = {
+const PREF: Partial<Record<NotificationKind, 'notifyArrivals' | 'notifyQuests' | 'notifyAchievements' | 'notifyCircle' | 'notifyTrips'>> = {
+  TRIP: 'notifyTrips',
+  QUICK_MESSAGE: 'notifyCircle',
   ARRIVAL: 'notifyArrivals',
   QUEST: 'notifyQuests',
   LEVEL_UP: 'notifyAchievements',

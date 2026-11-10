@@ -130,7 +130,8 @@ internal fun StayCard(s: TimelineItem.Stay) {
             Column(Modifier.padding(start = 14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(s.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
                 Text(s.range, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatPill("Stayed ${s.duration}", t.coralSoft, t.coralDark, Icons.Outlined.HourglassBottom)
                     if (s.ongoing) StatPill("Happening now", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
                 }
@@ -152,7 +153,8 @@ internal fun TripCard(t: TimelineItem.Trip) {
                 }
                 Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tk.skySoft), contentAlignment = Alignment.Center) { Illustration(if (t.driving) "car" else "sneaker", size = 42.dp) }
             }
-            Row(Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatPill("Took ${t.duration}", tk.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, Icons.Outlined.Timer)
                 StatPill("avg ${t.avgSpeed}", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)
                 if (t.driving) StatPill("top ${t.maxSpeed}", tk.yellowSoft, tk.onYellowSoft, Icons.Outlined.Bolt)
