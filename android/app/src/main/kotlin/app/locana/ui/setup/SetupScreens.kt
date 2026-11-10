@@ -105,6 +105,7 @@ fun ProfileSetupScreen(vm: SetupViewModel, onNext: () -> Unit) {
                 Text(
                     (s.displayName.ifBlank { "You" }) + " · just now",
                     style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF1F1645),
                     modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White).padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
@@ -206,14 +207,14 @@ fun PermissionsScreen(vm: SetupViewModel, onDone: () -> Unit, finishOnboarding: 
                     StatusCard(
                         icon = if (perms.anyLocation) Icons.Outlined.LocationOn else Icons.Outlined.LocationOff,
                         tile = if (perms.anyLocation) tokens.mintSoft else tokens.coralSoft,
-                        tint = if (perms.anyLocation) Color(0xFF0E8A5D) else tokens.coralDark,
+                        tint = if (perms.anyLocation) app.locana.ui.theme.LocalTokens.current.onMint else tokens.coralDark,
                         title = "Location",
                         detail = if (!perms.anyLocation) "Not allowed, browse only" else if (perms.background) "Allowed, also in the background" else "Allowed while the app is open",
                     )
                     StatusCard(
                         icon = if (perms.notifications) Icons.Outlined.Notifications else Icons.Outlined.NotificationsOff,
                         tile = if (perms.notifications) tokens.mintSoft else tokens.yellowSoft,
-                        tint = if (perms.notifications) Color(0xFF0E8A5D) else Color(0xFFA86F00),
+                        tint = if (perms.notifications) app.locana.ui.theme.LocalTokens.current.onMint else app.locana.ui.theme.LocalTokens.current.onAmber,
                         title = "Notifications",
                         detail = if (perms.notifications) "On" else "Off",
                     )

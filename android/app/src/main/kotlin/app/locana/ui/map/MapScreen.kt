@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.outlined.LocationOff
 import app.locana.ui.theme.LocalTokens
+import app.locana.ui.theme.Motion
 import app.locana.ui.components.AvatarStack
 import app.locana.ui.components.Illustration
 import app.locana.ui.components.LocanaChip
@@ -209,10 +212,13 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val outline = MaterialTheme.colorScheme.outline
     val placeColor = MaterialTheme.colorScheme.secondary
 
+    val bar = app.locana.ui.LocalBarInset.current
+    val statusTop = androidx.compose.foundation.layout.WindowInsets.Companion.statusBars.asPaddingValues().calculateTopPadding()
     BottomSheetScaffold(
         scaffoldState = scaffold,
         // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
-        sheetPeekHeight = if (ui.noCircles) SheetPeekEmpty else SheetPeek,
+        // The sheet reaches the bottom of the screen; the peek leaves room for the tab bar floating over it.
+        sheetPeekHeight = (if (ui.noCircles) SheetPeekEmpty else SheetPeek) + bar - 24.dp,
         sheetContainerColor = MaterialTheme.colorScheme.background,
         sheetShape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         sheetShadowElevation = 12.dp,
@@ -222,8 +228,13 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
         },
         sheetContent = {
             // Expands to at most two thirds of the screen so the map stays in view.
-            Box(Modifier.heightIn(max = (screenHeight * 0.66f).dp)) {
-                val m = ui.members.firstOrNull { it.userId == focusedId }
+            Box(Modifier.heightIn(max = (screenHeight * 0.66f).dp).padding(bottom = bar)) {
+              androidx.compose.animation.AnimatedContent(
+                targetState = focusedId,
+                transitionSpec = { androidx.compose.animation.ContentTransform(androidx.compose.animation.fadeIn(Motion.enter(240)) + androidx.compose.animation.slideInVertically(Motion.enter(280)) { it / 12 }, androidx.compose.animation.fadeOut(Motion.enter(120))) },
+                label = "sheet",
+              ) { shownId ->
+                val m = ui.members.firstOrNull { it.userId == shownId }
                 if (m != null) MemberDetail(
                     m = m,
                     me = ui.members.firstOrNull { it.isMe },
@@ -240,6 +251,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                     onCreateCircle = { nav.navigate(Routes.CIRCLE_CREATE) },
                     onJoin = { nav.navigate(Routes.circleJoin()) },
                 )
+              }
             }
         },
     ) { pad ->
@@ -320,7 +332,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
             // Top row, as in the reference: settings, circle switcher, notifications. While a person is focused: back and their name.
             Row(
-                Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp + statusTop, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -350,7 +362,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             // Without location permission the circle cannot see you, and sharing is automatic once you belong to one.
             if (!ui.noCircles && !perms.anyLocation && focusedId == null) {
                 val tk = LocalTokens.current
-                Box(Modifier.align(Alignment.TopCenter).padding(top = 12.dp + 48.dp + 10.dp, start = 16.dp, end = 16.dp).fillMaxWidth().padding(bottom = 4.dp)) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 12.dp + 48.dp + 10.dp + statusTop, start = 16.dp, end = 16.dp).fillMaxWidth().padding(bottom = 4.dp)) {
                     Box(Modifier.matchParentSize().graphicsLayer { translationY = 4.dp.toPx() }.background(tk.coralDark, ControlShape))
                     Surface(onClick = { nav.navigate(Routes.PERMISSIONS) }, shape = ControlShape, color = tk.coral, contentColor = Color.White, modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -365,23 +377,34 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             // Standing at a locked landmark: offer to unlock it. Anything the claim answers is shown in the same spot.
             val claimMessage by vm.claimMessage.collectAsStateWithLifecycle()
             val claimable = ui.claimable
-            if (focusedId == null && (claimable != null || claimMessage != null)) {
+            // Keep what the card last showed so it can slide away with its content instead of going blank.
+            var lastMessage by remember { mutableStateOf<String?>(null) }
+            var lastClaimable by remember { mutableStateOf<app.locana.data.api.LandmarkDto?>(null) }
+            if (claimMessage != null) lastMessage = claimMessage
+            if (claimable != null) lastClaimable = claimable
+            androidx.compose.animation.AnimatedVisibility(
+                visible = focusedId == null && (claimable != null || claimMessage != null),
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(0.7f, 420f)) { it / 2 } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically(Motion.enter(200)) { it / 2 } + androidx.compose.animation.fadeOut(Motion.enter(160)),
+            ) {
                 val tk = LocalTokens.current
+                val shownClaim = claimable ?: lastClaimable
                 Surface(
                     shape = RoundedCornerShape(22.dp), color = tk.card, shadowElevation = 6.dp,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 76.dp, bottom = above).fillMaxWidth().semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    modifier = Modifier.padding(start = 16.dp, end = 76.dp, bottom = above).fillMaxWidth().semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (claimMessage != null) {
-                            Text(claimMessage!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        if (claimMessage != null || (claimable == null && lastMessage != null)) {
+                            Text(claimMessage ?: lastMessage.orEmpty(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             ChunkyButton("OK", { vm.claimShown() }, compact = true, style = ChunkyStyle.Secondary)
-                        } else if (claimable != null) {
+                        } else if (shownClaim != null) {
                             Icon(Icons.Outlined.LockOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Column(Modifier.weight(1f)) {
-                                Text(claimable.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
-                                Text("You're here. Unlock it for +${claimable.rewardXp} XP", style = MaterialTheme.typography.bodySmall, color = tk.ink2)
+                                Text(shownClaim.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
+                                Text("You're here. Unlock it for +${shownClaim.rewardXp} XP", style = MaterialTheme.typography.bodySmall, color = tk.ink2)
                             }
-                            ChunkyButton("Claim", { vm.claim(claimable) }, compact = true)
+                            ChunkyButton("Claim", { vm.claim(shownClaim) }, compact = true)
                         }
                     }
                 }
@@ -394,7 +417,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
             // Categories of places around the centre of the map. Each tap asks Google once; a second tap clears them.
             if (focusedId == null) {
-                val chipTop = if (!ui.noCircles && !perms.anyLocation) 12.dp + 48.dp + 10.dp + 62.dp else 12.dp + 48.dp + 10.dp
+                val chipTop = statusTop + (if (!ui.noCircles && !perms.anyLocation) 12.dp + 48.dp + 10.dp + 62.dp else 12.dp + 48.dp + 10.dp)
                 Column(Modifier.align(Alignment.TopStart).padding(top = chipTop, start = 16.dp, end = 16.dp)) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         NearbyKind.entries.forEach { kind ->
@@ -447,7 +470,7 @@ private fun NearbyChip(kind: NearbyKind, selected: Boolean, onClick: () -> Unit)
     val t = LocalTokens.current
     val (icon, tint) = when (kind) {
         NearbyKind.FOOD -> Icons.Outlined.Restaurant to t.coral
-        NearbyKind.CAFE -> Icons.Outlined.LocalCafe to Color(0xFFA86F00)
+        NearbyKind.CAFE -> Icons.Outlined.LocalCafe to app.locana.ui.theme.LocalTokens.current.onAmber
         NearbyKind.SHOPS -> Icons.Outlined.ShoppingBag to t.sky
         NearbyKind.SIGHTS -> Icons.Outlined.AccountBalance to t.mint
         NearbyKind.PARKS -> Icons.Outlined.Park to t.mint

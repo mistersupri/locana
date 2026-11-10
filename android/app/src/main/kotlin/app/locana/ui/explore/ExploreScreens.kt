@@ -442,7 +442,7 @@ fun QuestScreen(nav: NavController, vm: QuestViewModel = hiltViewModel()) {
                                 Modifier.padding(top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(LocalTokens.current.skySoft).padding(14.dp),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Icon(Icons.Outlined.Info, contentDescription = null, tint = Color(0xFF1E6FB0), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Outlined.Info, contentDescription = null, tint = app.locana.ui.theme.LocalTokens.current.onSky, modifier = Modifier.size(18.dp))
                                 Text(
                                     "Progress counts only from precise location fixes taken while exploration is on. Repeat visits to the same tile do not count twice.",
                                     style = MaterialTheme.typography.bodySmall,
@@ -567,7 +567,7 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
                                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(cardBrush(t.mintSoft, t.skySoft)).padding(16.dp)) {
                                     Illustration("monas", Modifier.align(Alignment.CenterEnd), size = 110.dp)
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        TagPill(if (located) "Nearest landmark" else "Landmark", Color.White, MaterialTheme.colorScheme.onSurface, icon = Icons.Outlined.Navigation)
+                                        TagPill(if (located) "Nearest landmark" else "Landmark", Color.White, Color(0xFF1F1645), icon = Icons.Outlined.Navigation)
                                         Text(n.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.fillMaxWidth(0.62f))
                                         XpBadge("+${n.rewardXp} XP")
                                     }
@@ -577,10 +577,10 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
                         items(s.value, key = { it.id }) { l ->
                             val t = LocalTokens.current
                             val (icon, tile, tint) = when (l.category) {
-                                "library" -> Triple(Icons.Outlined.LocalLibrary, t.skySoft, Color(0xFF1E6FB0))
+                                "library" -> Triple(Icons.Outlined.LocalLibrary, t.skySoft, app.locana.ui.theme.LocalTokens.current.onSky)
                                 "museum" -> Triple(Icons.Outlined.Museum, t.coralSoft, t.coralDark)
-                                "religious" -> Triple(Icons.Outlined.TempleBuddhist, t.mintSoft, Color(0xFF0E8A5D))
-                                "park" -> Triple(Icons.Outlined.Park, t.mintSoft, Color(0xFF0E8A5D))
+                                "religious" -> Triple(Icons.Outlined.TempleBuddhist, t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint)
+                                "park" -> Triple(Icons.Outlined.Park, t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint)
                                 else -> Triple(Icons.Outlined.Museum, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
                             }
                             val inRange = located && !l.visited && l.distanceM <= l.radiusM
@@ -713,7 +713,7 @@ fun ExplorationMapScreen(nav: NavController, vm: ExplorationMapViewModel = hiltV
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Stat("${s.tilesDiscovered}", "tiles", MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                     Stat("${s.landmarksVisited}", "landmarks", t.coralDark, Modifier.weight(1f))
-                    Stat(Formatting.distance(s.totalDistanceM), "walked", Color(0xFF0E8A5D), Modifier.weight(1f))
+                    Stat(Formatting.distance(s.totalDistanceM), "walked", app.locana.ui.theme.LocalTokens.current.onMint, Modifier.weight(1f))
                     Stat("${s.currentStreak}", "day streak", t.onYellowSoft, Modifier.weight(1f))
                 }
             }

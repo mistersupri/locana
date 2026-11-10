@@ -7,7 +7,9 @@ import android.graphics.Canvas
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -86,7 +88,18 @@ class AppFlowTest {
     private fun node(text: String, substring: Boolean = false): SemanticsNodeInteraction =
         compose.onAllNodesWithText(text, substring = substring)[0]
 
+    /** Lazy lists only compose what is near the screen: scroll every scrollable until the text is composed. */
+    private fun scrollTo(text: String, substring: Boolean) {
+        if (compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()) return
+        val count = compose.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size
+        for (i in 0 until count) {
+            runCatching { compose.onAllNodes(hasScrollAction())[i].performScrollToNode(hasText(text, substring = substring)) }
+            if (compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()) return
+        }
+    }
+
     private fun click(text: String, substring: Boolean = false) {
+        scrollTo(text, substring)
         waitFor(text, substring)
         compose.onNode(hasText(text, substring = substring) and hasClickAction()).scrollIfNeeded().performClick()
         compose.waitForIdle()
@@ -284,6 +297,20 @@ class AppFlowTest {
         tab("Explore")
         waitFor("Today")
         shot("23-explore-dark")
+        // Dark tour: the screens with the most coloured tiles and text.
+        visit("Fresh ground", "23a-quest-dark")
+        visit("Landmarks", "23b-landmarks-dark")
+        tab("Play")
+        waitFor("to level 2", substring = true)
+        shot("23c-play-dark")
+        visit("Achievements", "23d-achievements-dark")
+        visit("Collection", "23e-collection-dark")
+        tab("Circle")
+        waitFor("Rani joined the circle")
+        shot("23f-circle-dark")
+        tab("Map")
+        waitFor("Invite")
+        shot("23g-map-dark")
         tab("Map")
         clickDescription("Profile and settings")
         click("Light")

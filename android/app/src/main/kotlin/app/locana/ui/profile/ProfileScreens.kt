@@ -195,10 +195,10 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
         }
         item {
             NavItem("Notifications", "Arrivals, quests and circle news", badge = unread, icon = Icons.Outlined.Notifications, tile = tk.yellowSoft, tint = tk.yellowDark) { nav.navigate(Routes.NOTIFICATIONS) }
-            NavItem("Privacy", "History, exploration, rankings, alerts", icon = Icons.Outlined.VisibilityOff, tile = tk.mintSoft, tint = Color(0xFF0E8A5D)) { nav.navigate(Routes.PRIVACY) }
+            NavItem("Privacy", "History, exploration, rankings, alerts", icon = Icons.Outlined.VisibilityOff, tile = tk.mintSoft, tint = app.locana.ui.theme.LocalTokens.current.onMint) { nav.navigate(Routes.PRIVACY) }
             NavItem("Account and security", "Password, devices, your data, delete account", icon = Icons.Outlined.Shield, tile = MaterialTheme.colorScheme.primaryContainer, tint = MaterialTheme.colorScheme.primary) { nav.navigate(Routes.ACCOUNT) }
             NavItem("Blocked people", "Hidden from each other", icon = Icons.Outlined.PersonOff, tile = tk.coralSoft, tint = tk.coralDark) { nav.navigate(Routes.BLOCKED) }
-            NavItem("Permissions", "Location and notification access", icon = Icons.Outlined.LocationOn, tile = tk.skySoft, tint = Color(0xFF1E6FB0)) { nav.navigate(Routes.PERMISSIONS) }
+            NavItem("Permissions", "Location and notification access", icon = Icons.Outlined.LocationOn, tile = tk.skySoft, tint = app.locana.ui.theme.LocalTokens.current.onSky) { nav.navigate(Routes.PERMISSIONS) }
             Text("Appearance", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 8.dp))
             Segmented(
                 listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark"),
@@ -417,10 +417,10 @@ fun AccountScreen(nav: NavController, vm: AccountViewModel = hiltViewModel()) {
                         subtitle = "Signed in ${d.createdAt.take(10)}",
                         icon = Icons.Outlined.Smartphone,
                         tileColor = tk.mintSoft,
-                        tileTint = Color(0xFF0E8A5D),
+                        tileTint = app.locana.ui.theme.LocalTokens.current.onMint,
                         modifier = Modifier.padding(bottom = 8.dp),
                         trailing = {
-                            if (d.current) TagPill("Active", tk.mintSoft, Color(0xFF0E8A5D))
+                            if (d.current) TagPill("Active", tk.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint)
                             else Text("Sign out", style = MaterialTheme.typography.labelLarge, color = tk.coralDark, modifier = Modifier.clickable(role = Role.Button) { vm.revoke(d.id) }.padding(8.dp))
                         },
                     )

@@ -342,9 +342,9 @@ fun OnboardingScreen(onCreate: () -> Unit, onSignIn: () -> Unit) {
             Text("Every new street you walk lights a tile.", style = MaterialTheme.typography.bodySmall, color = t.ink2, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
         Spacer(Modifier.height(20.dp))
-        FeatureRow(Icons.Outlined.Groups, t.mintSoft, Color(0xFF0E8A5D), "Your circle", "A family, a partner, close friends. Each circle sees you while you belong to it.")
+        FeatureRow(Icons.Outlined.Groups, t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint, "Your circle", "A family, a partner, close friends. Each circle sees you while you belong to it.")
         Spacer(Modifier.height(14.dp))
-        FeatureRow(Icons.Outlined.SportsEsports, t.yellowSoft, Color(0xFFA86F00), "The game", "New streets uncover map tiles. Public landmarks, quests and friendly territory rounds earn XP for you and your circle.")
+        FeatureRow(Icons.Outlined.SportsEsports, t.yellowSoft, app.locana.ui.theme.LocalTokens.current.onAmber, "The game", "New streets uncover map tiles. Public landmarks, quests and friendly territory rounds earn XP for you and your circle.")
         // The privacy promise gets its own panel: it is what people need to believe before granting location.
         Row(
             Modifier

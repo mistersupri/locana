@@ -154,6 +154,7 @@ class MapViewModel @Inject constructor(
     private var lastFix: android.location.Location? = null
 
     @Volatile private var liveLocation: android.location.Location? = null
+    private val movingUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     /**
      * One tick every 15 s, plus one for every fresh fix while the map is on screen. The phone is asked for a
@@ -225,12 +226,19 @@ class MapViewModel @Inject constructor(
             val serverMovement = r?.movement
             val local = if (own != null) tick.activity else null
             val localMode = when (local) { "vehicle" -> "DRIVING"; "cycling" -> "CYCLING"; "walking", "running" -> "WALKING"; else -> null }
+            // Your own pin does not wait for the server: the phone's activity guess, or a clear speed on a good fix,
+            // is enough, and the badge then stays for a short while so a step-and-pause does not make it flicker.
+            val ownSpeedNow = own?.takeIf { it.hasSpeed() && it.accuracy <= 25f && now - it.time <= 20_000 }?.speed ?: 0f
+            val seemsMoving = isMe && own != null && ((local != null && localMode != null) || ownSpeedNow >= 0.8f)
+            if (seemsMoving) movingUntil[m.userId] = now + 25_000
+            val holding = isMe && (movingUntil[m.userId] ?: 0L) > now && local != "still"
             val movement = when {
-                local != null && localMode != null && (serverMovement != "STAYING" || (own?.takeIf { it.hasSpeed() }?.speed ?: 0f) >= 0.8f) -> "MOVING"
+                seemsMoving || holding -> "MOVING"
                 local == "still" && serverMovement != "STAYING" -> "UNKNOWN"
                 else -> serverMovement
             }
-            val mode = if (movement == "MOVING") localMode ?: r?.mode else null
+            val ownMode = localMode ?: if (ownSpeedNow >= 5.5f) "DRIVING" else "WALKING"
+            val mode = if (movement == "MOVING") (if (isMe && (seemsMoving || holding)) ownMode else localMode ?: r?.mode) else null
             val ownSpeed = own?.takeIf { it.hasSpeed() && now - it.time <= 90_000 }?.speed?.toDouble()
             MemberPin(
                 userId = m.userId,

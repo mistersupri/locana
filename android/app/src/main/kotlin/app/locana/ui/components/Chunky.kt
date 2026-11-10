@@ -56,6 +56,8 @@ import app.locana.ui.theme.LocalDarkTheme
 import app.locana.ui.theme.LocalReducedMotion
 import app.locana.ui.theme.LocalTokens
 import app.locana.ui.theme.Motion
+import app.locana.ui.theme.enterRise
+import app.locana.ui.theme.popIn
 
 /*
  * The mockup's building blocks: chunky buttons with a solid edge underneath, cards with a soft shadow,
@@ -165,9 +167,9 @@ fun LocanaCard(
 ) {
     if (onClick != null) {
         val source = remember { MutableInteractionSource() }
-        Surface(onClick = onClick, shape = shape, color = color, shadowElevation = shadow, border = border, interactionSource = source, modifier = modifier.pressScale(source)) { content() }
+        Surface(onClick = onClick, shape = shape, color = color, shadowElevation = shadow, border = border, interactionSource = source, modifier = modifier.enterRise().pressScale(source)) { content() }
     } else {
-        Surface(shape = shape, color = color, shadowElevation = shadow, border = border, modifier = modifier) { content() }
+        Surface(shape = shape, color = color, shadowElevation = shadow, border = border, modifier = modifier.enterRise()) { content() }
     }
 }
 
@@ -264,7 +266,7 @@ fun Illustration(name: String, modifier: Modifier = Modifier, size: Dp = 96.dp) 
     val context = LocalContext.current
     val res = remember(name) { context.resources.getIdentifier("ill_$name", "drawable", context.packageName) }
     if (res != 0) {
-        Image(painterResource(res), contentDescription = null, contentScale = ContentScale.Fit, modifier = modifier.size(size))
+        Image(painterResource(res), contentDescription = null, contentScale = ContentScale.Fit, modifier = modifier.size(size).popIn(120))
     } else {
         Box(modifier.size(size), contentAlignment = Alignment.Center) {
             Text(illustrationEmoji(name), fontSize = (size.value * 0.62f).sp, fontFamily = Display)

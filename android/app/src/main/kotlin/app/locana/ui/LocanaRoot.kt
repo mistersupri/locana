@@ -3,6 +3,8 @@ package app.locana.ui
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,6 +54,9 @@ import app.locana.ui.game.LevelUpHost
 import app.locana.ui.nav.Routes
 import app.locana.ui.theme.LocanaTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+
+/** Height of the floating tab bar (with the system bar under it) when a screen draws behind it; zero otherwise. */
+val LocalBarInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
@@ -99,6 +105,7 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val showBar = route in Routes.tabs
+    val isMap = route == Routes.MAP
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -115,7 +122,11 @@ private fun MainScaffold(nav: NavHostController, snackbar: SnackbarHostState) {
             }
         },
     ) { padding ->
-        MainGraph(nav, snackbar, Modifier.padding(padding))
+        // The map draws edge to edge: under the status bar at the top and, with its drawer, down behind the tab bar.
+        // It is told how tall the bar is so nothing important sits underneath it.
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarInset provides (if (isMap && showBar) padding.calculateBottomPadding() else 0.dp)) {
+            MainGraph(nav, snackbar, if (isMap) Modifier else Modifier.padding(padding))
+        }
     }
 }
 
@@ -136,17 +147,19 @@ private fun FloatingTabBar(route: String?, onSelect: (Tab) -> Unit) {
                 tabs.forEach { t ->
                     val selected = route == t.route
                     val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    val tint = if (selected) MaterialTheme.colorScheme.primary else tokens.ink3
+                    val tint by androidx.compose.animation.animateColorAsState(if (selected) MaterialTheme.colorScheme.primary else tokens.ink3, app.locana.ui.theme.Motion.enter(220), label = "tabTint")
+                    val pill by androidx.compose.animation.animateColorAsState(if (selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent, app.locana.ui.theme.Motion.enter(240), label = "tabPill")
+                    val lift by androidx.compose.animation.core.animateFloatAsState(if (selected) 1.14f else 1f, androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 420f), label = "tabIcon")
                     androidx.compose.foundation.layout.Column(
                         Modifier
                             .weight(1f)
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(26.dp))
-                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+                            .background(pill)
                             .clickable(interactionSource = source, indication = null, role = androidx.compose.ui.semantics.Role.Tab, onClick = { onSelect(t) })
                             .padding(vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+                        Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = lift; scaleY = lift })
                         Text(t.label, style = MaterialTheme.typography.labelSmall, color = tint, modifier = Modifier.padding(top = 2.dp))
                     }
                 }
@@ -158,3 +171,9 @@ private fun FloatingTabBar(route: String?, onSelect: (Tab) -> Unit) {
 /** Screens fade quickly on push; tabs and back do not animate beyond this. */
 internal val enterFade: EnterTransition = fadeIn(app.locana.ui.theme.Motion.enter(160))
 internal val exitFade: ExitTransition = fadeOut(app.locana.ui.theme.Motion.enter(120))
+
+private val slide = { w: Int -> w / 7 }
+internal val pushIn: EnterTransition = slideInHorizontally(app.locana.ui.theme.Motion.enter(320)) { slide(it) } + fadeIn(app.locana.ui.theme.Motion.enter(260))
+internal val pushOut: ExitTransition = slideOutHorizontally(app.locana.ui.theme.Motion.enter(320)) { -slide(it) / 2 } + fadeOut(app.locana.ui.theme.Motion.enter(200))
+internal val popIn: EnterTransition = slideInHorizontally(app.locana.ui.theme.Motion.enter(320)) { -slide(it) / 2 } + fadeIn(app.locana.ui.theme.Motion.enter(260))
+internal val popOut: ExitTransition = slideOutHorizontally(app.locana.ui.theme.Motion.enter(300)) { slide(it) } + fadeOut(app.locana.ui.theme.Motion.enter(200))

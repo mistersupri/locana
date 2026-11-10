@@ -192,7 +192,7 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
                     StatTile(Icons.Outlined.GridView, "${p.tilesDiscovered}", "tiles", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                     StatTile(Icons.Outlined.Museum, "${stats?.landmarksVisited ?: 0}", "landmarks", t.coralSoft, t.coralDark, Modifier.weight(1f))
                     StatTile(Icons.Outlined.TrackChanges, "${p.questsCompleted}", "quests", t.yellowSoft, t.yellowDark, Modifier.weight(1f))
-                    StatTile(Icons.AutoMirrored.Outlined.DirectionsWalk, Formatting.distance(p.totalDistanceM), "walked", t.mintSoft, Color(0xFF0E8A5D), Modifier.weight(1f))
+                    StatTile(Icons.AutoMirrored.Outlined.DirectionsWalk, Formatting.distance(p.totalDistanceM), "walked", t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint, Modifier.weight(1f))
                 }
             }
             if (recent.isNotEmpty()) {
@@ -204,9 +204,9 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     NavRow("Achievements", "Milestones for exploring and playing together", Icons.Outlined.MilitaryTech, t.yellowSoft, t.yellowDark) { nav.navigate(Routes.ACHIEVEMENTS) }
                     NavRow("Collection", "Frames, titles, markers and landmark stamps", Icons.Outlined.Diamond, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary) { nav.navigate(Routes.COLLECTIBLES) }
-                    NavRow("Friends leaderboard", "This week's XP among your circles", Icons.Outlined.Groups, t.mintSoft, Color(0xFF0E8A5D)) { nav.navigate(Routes.leaderboard("friends")) }
+                    NavRow("Friends leaderboard", "This week's XP among your circles", Icons.Outlined.Groups, t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint) { nav.navigate(Routes.leaderboard("friends")) }
                     NavRow("Circle leaderboard", "Who's carrying the team this week", Icons.Outlined.Leaderboard, t.coralSoft, t.coralDark) { nav.navigate(Routes.leaderboard("circle")) }
-                    NavRow("Level path", "XP needed for each level and its reward", Icons.AutoMirrored.Outlined.TrendingUp, t.skySoft, Color(0xFF1E6FB0)) { nav.navigate(Routes.LEVELS) }
+                    NavRow("Level path", "XP needed for each level and its reward", Icons.AutoMirrored.Outlined.TrendingUp, t.skySoft, app.locana.ui.theme.LocalTokens.current.onSky) { nav.navigate(Routes.LEVELS) }
                 }
             }
         }
@@ -241,7 +241,7 @@ private fun StreakBadge(days: Int) {
 internal fun RarityPill(rarity: String, modifier: Modifier = Modifier) {
     val t = LocalTokens.current
     val (bg, fg) = when (rarity) {
-        "RARE" -> t.skySoft to Color(0xFF1E6FB0)
+        "RARE" -> t.skySoft to app.locana.ui.theme.LocalTokens.current.onSky
         "EPIC" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
         "LEGENDARY" -> t.yellowSoft to t.onYellowSoft
         else -> MaterialTheme.colorScheme.surfaceContainerHigh to t.ink2
@@ -344,7 +344,7 @@ private fun CollectibleCard(c: CollectibleDto, equipped: Boolean, modifier: Modi
     LocanaCard(modifier, shape = RoundedCornerShape(20.dp), shadow = 2.dp, onClick = if (equippable) onToggle else null) {
         Column(Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                IconTile(iconFor(c.iconKey), t.skySoft, Color(0xFF1E6FB0), size = 42.dp, modifier = Modifier.alpha(if (owned) 1f else 0.7f))
+                IconTile(iconFor(c.iconKey), t.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, size = 42.dp, modifier = Modifier.alpha(if (owned) 1f else 0.7f))
                 Spacer(Modifier.weight(1f))
                 if (!owned) Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = t.ink3, modifier = Modifier.size(16.dp))
             }

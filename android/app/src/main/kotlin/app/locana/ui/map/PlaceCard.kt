@@ -77,7 +77,7 @@ fun PlaceCard(poi: PoiUi, from: LatLon?, onClose: () -> Unit, modifier: Modifier
                             Icon(Icons.Filled.Star, contentDescription = null, tint = t.yellowDark, modifier = Modifier.size(18.dp))
                             Text(String.format(Locale.US, "%.1f", place.rating), style = MaterialTheme.typography.titleSmall)
                             place.ratingCount?.let { Text("($it)", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant) }
-                            place.openNow?.let { Text(if (it) "· Open now" else "· Closed now", style = MaterialTheme.typography.bodyMedium, color = if (it) Color(0xFF0E8A5D) else scheme.onSurfaceVariant) }
+                            place.openNow?.let { Text(if (it) "· Open now" else "· Closed now", style = MaterialTheme.typography.bodyMedium, color = if (it) app.locana.ui.theme.LocalTokens.current.onMint else scheme.onSurfaceVariant) }
                         }
                     } else if (place?.openNow != null) {
                         Text(if (place.openNow) "Open now" else "Closed now", style = MaterialTheme.typography.labelLarge)

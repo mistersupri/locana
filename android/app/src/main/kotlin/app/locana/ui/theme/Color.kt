@@ -136,6 +136,10 @@ data class Tokens(
     val coralSoft: Color,
     val sky: Color,
     val skySoft: Color,
+    /** Text and icons on the soft mint / sky / amber tiles: dark enough in the light theme, light enough in the dark one. */
+    val onMint: Color,
+    val onSky: Color,
+    val onAmber: Color,
     /** Fill under the chunky 3D buttons' bottom edge for secondary buttons. */
     val edge: Color,
 )
@@ -144,14 +148,14 @@ val LightTokens = Tokens(
     ink2 = Palette.Ink2, ink3 = Palette.Ink3, line = Palette.Line, card = Color.White, primaryDark = Palette.Violet900,
     yellow = Palette.Yellow, yellowDark = Palette.YellowDark, yellowSoft = Palette.YellowSoft, onYellowSoft = Palette.Amber800,
     mint = Palette.Mint, mintSoft = Palette.MintSoft, coral = Palette.Coral, coralDark = Palette.CoralDark, coralSoft = Palette.CoralSoft,
-    sky = Palette.Sky, skySoft = Palette.SkySoft, edge = Color(0xFFE1D6FA),
+    sky = Palette.Sky, skySoft = Palette.SkySoft, onMint = Color(0xFF0E8A5D), onSky = Color(0xFF1E6FB0), onAmber = Color(0xFFA86F00), edge = Color(0xFFE1D6FA),
 )
 
 val DarkTokens = Tokens(
     ink2 = Palette.Mist300, ink3 = Color(0xFF8A82B0), line = Color(0xFF332A5E), card = Palette.Night900, primaryDark = Color(0xFF7B5FD6),
     yellow = Palette.Yellow, yellowDark = Palette.YellowDark, yellowSoft = Color(0xFF4A3500), onYellowSoft = Palette.YellowSoft,
     mint = Color(0xFF3DD9A0), mintSoft = Color(0xFF0F3A2D), coral = Color(0xFFFF7A66), coralDark = Color(0xFFFF8A7A), coralSoft = Color(0xFF4A1E18),
-    sky = Color(0xFF6BC0FF), skySoft = Color(0xFF12344D), edge = Color(0xFF3A2F6B),
+    sky = Color(0xFF6BC0FF), skySoft = Color(0xFF12344D), onMint = Color(0xFF6FE3B8), onSky = Color(0xFF8CCBFF), onAmber = Color(0xFFFFD27A), edge = Color(0xFF3A2F6B),
 )
 
 /** Reward colors live outside Material roles so they cannot leak into ordinary UI. */

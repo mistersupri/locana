@@ -175,11 +175,11 @@ internal fun MemberDetail(
 private fun BatteryChip(pct: Int) {
     val t = LocalTokens.current
     Row(
-        Modifier.clip(RoundedCornerShape(999.dp)).background(Color.White).padding(horizontal = 11.dp, vertical = 6.dp),
+        Modifier.clip(RoundedCornerShape(999.dp)).background(t.card).padding(horizontal = 11.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Icon(Icons.Outlined.BatteryFull, contentDescription = null, tint = if (pct <= 20) t.coralDark else Color(0xFF0E8A5D), modifier = Modifier.size(14.dp))
-        Text("$pct%", style = MaterialTheme.typography.labelMedium, color = if (pct <= 20) t.coralDark else Color(0xFF0E8A5D))
+        Icon(Icons.Outlined.BatteryFull, contentDescription = null, tint = if (pct <= 20) t.coralDark else app.locana.ui.theme.LocalTokens.current.onMint, modifier = Modifier.size(14.dp))
+        Text("$pct%", style = MaterialTheme.typography.labelMedium, color = if (pct <= 20) t.coralDark else app.locana.ui.theme.LocalTokens.current.onMint)
     }
 }

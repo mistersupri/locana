@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
@@ -74,7 +76,7 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
     val now = System.currentTimeMillis()
     val cone = remember(accent, density) { BitmapDescriptorFactory.fromBitmap(renderHeadingCone(accent, density)) }
     members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.forEach { m -> androidx.compose.runtime.key(m.userId) {
-        val position = LatLng(m.lat!!, m.lon!!)
+        val position = rememberGlidingLatLng(LatLng(m.lat!!, m.lon!!))
         val caption = captionFor(m, placeAt(m, places), now)
         val (bg, fg) = AvatarColors[m.avatarKey] ?: AvatarColors.getValue("explorer_slate")
         val store = app.locana.ui.components.LocalPhotoStore.current
@@ -119,4 +121,27 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
             onClick = { onClick(m.userId); true },
         )
     } }
+}
+
+/**
+ * A position that glides to each new fix instead of jumping, so a pin moves like a person does. The first
+ * position is used as is; a long jump (someone appearing across town) also snaps rather than sliding over the map.
+ */
+@Composable
+private fun rememberGlidingLatLng(target: LatLng): LatLng {
+    val reduced = app.locana.ui.theme.LocalReducedMotion.current
+    var from by remember { mutableStateOf(target) }
+    var to by remember { mutableStateOf(target) }
+    val t = remember { androidx.compose.animation.core.Animatable(1f) }
+    androidx.compose.runtime.LaunchedEffect(target) {
+        if (target == to) return@LaunchedEffect
+        val here = LatLng(from.latitude + (to.latitude - from.latitude) * t.value, from.longitude + (to.longitude - from.longitude) * t.value)
+        val metres = Geo.distanceM(LatLon(here.latitude, here.longitude), LatLon(target.latitude, target.longitude))
+        from = here
+        to = target
+        if (reduced || metres > 400) { from = target; t.snapTo(1f); return@LaunchedEffect }
+        t.snapTo(0f)
+        t.animateTo(1f, androidx.compose.animation.core.tween(1_200, easing = androidx.compose.animation.core.LinearEasing))
+    }
+    return LatLng(from.latitude + (to.latitude - from.latitude) * t.value, from.longitude + (to.longitude - from.longitude) * t.value)
 }

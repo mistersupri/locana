@@ -78,7 +78,14 @@ fun SetupGraph(nav: NavHostController) {
 @Composable
 fun MainGraph(nav: NavHostController, @Suppress("UNUSED_PARAMETER") snackbar: SnackbarHostState, modifier: Modifier) {
     val id = listOf(navArgument("id") { type = NavType.StringType })
-    NavHost(nav, startDestination = Routes.MAP, modifier = modifier, enterTransition = { enterFade }, exitTransition = { exitFade }) {
+    NavHost(
+        nav, startDestination = Routes.MAP, modifier = modifier,
+        // Tabs cross-fade; screens opened from them slide in from the side and slide back out.
+        enterTransition = { if (targetState.destination.route in Routes.tabs) enterFade else pushIn },
+        exitTransition = { if (targetState.destination.route in Routes.tabs) exitFade else pushOut },
+        popEnterTransition = { if (targetState.destination.route in Routes.tabs) enterFade else popIn },
+        popExitTransition = { if (initialState.destination.route in Routes.tabs) exitFade else popOut },
+    ) {
         composable(Routes.MAP) { MapScreen(nav) }
         composable(Routes.EXPLORE) { ExploreScreen(nav) }
         composable(Routes.PLAY) { PlayScreen(nav) }

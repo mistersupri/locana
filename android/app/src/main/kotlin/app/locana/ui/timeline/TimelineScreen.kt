@@ -153,7 +153,7 @@ internal fun TripCard(t: TimelineItem.Trip) {
                 Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(tk.skySoft), contentAlignment = Alignment.Center) { Illustration(if (t.driving) "car" else "sneaker", size = 42.dp) }
             }
             Row(Modifier.padding(start = 4.dp, end = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                StatPill("Took ${t.duration}", tk.skySoft, Color(0xFF1E6FB0), Icons.Outlined.Timer)
+                StatPill("Took ${t.duration}", tk.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, Icons.Outlined.Timer)
                 StatPill("avg ${t.avgSpeed}", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)
                 if (t.driving) StatPill("top ${t.maxSpeed}", tk.yellowSoft, tk.onYellowSoft, Icons.Outlined.Bolt)
                 if (t.ongoing) StatPill("Now", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)

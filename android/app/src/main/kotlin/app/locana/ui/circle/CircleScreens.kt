@@ -240,7 +240,7 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
                             "Set a shared goal, like 20 new tiles this week.", "New", { nav.navigate(Routes.challengeNew(h.detail.id)) },
                         )
                         InfoCard(
-                            Modifier.weight(1f), Icons.Outlined.Map, tk.mintSoft, Color(0xFF0E8A5D), "Exploring together",
+                            Modifier.weight(1f), Icons.Outlined.Map, tk.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint, "Exploring together",
                             h.exploration?.let { "${it.totalTiles} tiles revealed by members who share stats." } ?: "Tiles revealed by members who share stats.",
                             "Leaderboard", { nav.navigate(Routes.leaderboard("circle")) },
                         )
@@ -570,7 +570,7 @@ fun PlacesScreen(nav: NavController, vm: PlacesViewModel = hiltViewModel()) {
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TagPill("Home", LocalTokens.current.coralSoft, LocalTokens.current.coralDark, icon = Icons.Outlined.Home)
-                            TagPill("School", LocalTokens.current.skySoft, Color(0xFF1E6FB0), icon = Icons.Outlined.School)
+                            TagPill("School", LocalTokens.current.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, icon = Icons.Outlined.School)
                             TagPill("Work", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary, icon = Icons.Outlined.Work)
                         }
                     }
@@ -580,9 +580,9 @@ fun PlacesScreen(nav: NavController, vm: PlacesViewModel = hiltViewModel()) {
                             val tk = LocalTokens.current
                             val (icon, tile, tint) = when (p.type) {
                                 "HOME" -> Triple(Icons.Outlined.Home, tk.coralSoft, tk.coralDark)
-                                "SCHOOL" -> Triple(Icons.Outlined.School, tk.skySoft, Color(0xFF1E6FB0))
+                                "SCHOOL" -> Triple(Icons.Outlined.School, tk.skySoft, app.locana.ui.theme.LocalTokens.current.onSky)
                                 "WORK" -> Triple(Icons.Outlined.Work, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
-                                else -> Triple(Icons.Outlined.Place, tk.mintSoft, Color(0xFF0E8A5D))
+                                else -> Triple(Icons.Outlined.Place, tk.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint)
                             }
                             ListRowCard(
                                 title = p.name,
