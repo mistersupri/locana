@@ -37,6 +37,8 @@ data class PinSpec(
     val bubbleValue: String?,
     /** Emoji shown in the bubble and on the avatar's badge: a house for staying, a shoe for walking, a car for driving. */
     val emoji: String?,
+    /** The person whose card is open: a violet ring instead of white, so the pin stands out from the rest. */
+    val highlighted: Boolean = false,
 )
 
 class RenderedPin(val bitmap: Bitmap, /** 0..1 from the top: where the person's position is. */ val anchorY: Float)
@@ -110,7 +112,7 @@ fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin
     }
 
     // Avatar: a rounded square with a ring, a soft shadow and a small arrow pointing down at the dot.
-    val ringColor = if (spec.framed) spec.frameColor else Color.WHITE
+    val ringColor = if (spec.highlighted) spec.accent else if (spec.framed) spec.frameColor else Color.WHITE
     val face = if (spec.stale) 0xFFA99BD8.toInt() else spec.avatarColor
     val inner = RectF(cx - px(AVATAR / 2), avatarTop, cx + px(AVATAR / 2), avatarBottom)
     val outer = RectF(inner).apply { inset(-px(RING), -px(RING)) }
@@ -158,6 +160,17 @@ fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin
     c.drawCircle(cx, dotCenter, px(DOT / 2 - 3f), paint(dotColor))
 
     return RenderedPin(bmp, dotCenter / height)
+}
+
+/** A soft disc under the focused person's position: reads as a spotlight on the map. */
+fun renderHalo(accent: Int, density: Float): Bitmap {
+    val size = (132 * density).toInt()
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp)
+    val m = size / 2f
+    c.drawCircle(m, m, m, paint().apply { shader = RadialGradient(m, m, m, intArrayOf(withAlpha(accent, 0.34f), withAlpha(accent, 0.22f), withAlpha(accent, 0f)), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP) })
+    c.drawCircle(m, m, m * 0.62f, paint(withAlpha(accent, 0.55f), Paint.Style.STROKE).apply { strokeWidth = 2f * density })
+    return bmp
 }
 
 /**

@@ -20,12 +20,16 @@ private val Context.settings: DataStore<Preferences> by preferencesDataStore("se
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Whose look the map has. Mapbox needs a token in the build; without one the choice is not offered. */
+enum class MapProvider { GOOGLE, MAPBOX }
+
 data class MapLayers(val members: Boolean = true, val places: Boolean = true, val tiles: Boolean = true, val territories: Boolean = true, val landmarks: Boolean = true)
 
 data class Settings(
     val onboardingSeen: Boolean,
     val theme: ThemeMode,
     val layers: MapLayers,
+    val mapProvider: MapProvider,
     /** Mirror of the server's "collect location" answer, for restarts and reboots. Never set locally. */
     val lastKnownCollect: Boolean,
     val backgroundExplained: Boolean,
@@ -37,6 +41,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     private val kOnboarding = booleanPreferencesKey("onboarding_seen")
     private val kTheme = stringPreferencesKey("theme")
     private val kLayers = stringPreferencesKey("layers")
+    private val kProvider = stringPreferencesKey("map_provider")
     private val kCollect = booleanPreferencesKey("last_known_collect")
     private val kBgExplained = booleanPreferencesKey("background_explained")
     private val kSeq = longPreferencesKey("sample_sequence")
@@ -49,6 +54,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
             onboardingSeen = p[kOnboarding] ?: false,
             theme = p[kTheme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
             layers = if (l == null) MapLayers() else MapLayers("members" in l, "places" in l, "tiles" in l, "territories" in l, "landmarks" in l),
+            mapProvider = p[kProvider]?.let { runCatching { MapProvider.valueOf(it) }.getOrNull() } ?: MapProvider.GOOGLE,
             lastKnownCollect = p[kCollect] ?: false,
             backgroundExplained = p[kBgExplained] ?: false,
         )
@@ -57,6 +63,7 @@ class SettingsStore @Inject constructor(@ApplicationContext private val context:
     suspend fun snapshot(): Settings = settings.first()
 
     suspend fun setOnboardingSeen() = context.settings.edit { it[kOnboarding] = true }
+    suspend fun setMapProvider(p: MapProvider) = context.settings.edit { it[kProvider] = p.name }
     suspend fun setTheme(t: ThemeMode) = context.settings.edit { it[kTheme] = t.name }
     suspend fun setBackgroundExplained() = context.settings.edit { it[kBgExplained] = true }
     suspend fun setLastKnownCollect(v: Boolean) = context.settings.edit { it[kCollect] = v }

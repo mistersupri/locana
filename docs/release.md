@@ -45,6 +45,7 @@ In the repository: Settings, Secrets and variables, Actions.
 | `ANDROID_KEY_ALIAS` | Secret | Key alias inside the keystore |
 | `ANDROID_KEY_PASSWORD` | Secret | Key password |
 | `MAPS_API_KEY` | Secret | Google Maps in release builds (restrict it to `app.locana` and your signing SHA-1) |
+| `MAPBOX_ACCESS_TOKEN` | Secret (optional) | Lets people choose Mapbox's map look under Map layers. Use a public token (`pk.`) restricted to your URLs/app. The token is written into the APK like the Maps key. Without it the option says it is not set up. |
 | `GOOGLE_SERVER_CLIENT_ID` | Secret | Optional: "Continue with Google" |
 | `LOCANA_API_URL_RELEASE` | Variable | Your production API, e.g. `https://api.example.com/` (must be https) |
 

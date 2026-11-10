@@ -48,6 +48,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["MAPS_API_KEY"] = setting("MAPS_API_KEY")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"${setting("GOOGLE_SERVER_CLIENT_ID")}\"")
+        // Optional: lets people switch the map to Mapbox's look (their raster tiles are drawn inside the same map).
+        buildConfigField("String", "MAPBOX_TOKEN", "\"${setting("MAPBOX_ACCESS_TOKEN")}\"")
+        buildConfigField("boolean", "HAS_MAPBOX", setting("MAPBOX_ACCESS_TOKEN").isNotBlank().toString())
         buildConfigField("boolean", "HAS_MAPS_KEY", setting("MAPS_API_KEY").isNotBlank().toString())
         // The same key is already readable in the manifest; Places requests need it as a header.
         buildConfigField("String", "PLACES_API_KEY", "\"${setting("MAPS_API_KEY")}\"")

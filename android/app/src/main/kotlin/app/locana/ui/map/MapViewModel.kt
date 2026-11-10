@@ -104,6 +104,7 @@ data class MapUi(
     val sharing: SharingStateDto? = null,
     val sharingHere: Boolean = false,
     val layers: MapLayers = MapLayers(),
+    val mapProvider: app.locana.data.prefs.MapProvider = app.locana.data.prefs.MapProvider.GOOGLE,
     val places: List<PlaceDto> = emptyList(),
     val tiles: List<TileDto> = emptyList(),
     val territories: List<TerritorySummaryDto> = emptyList(),
@@ -115,7 +116,7 @@ data class MapUi(
     val noCircles: Boolean = false,
 )
 
-private data class Base(val circles: List<CircleSummaryDto>, val selected: String?, val detail: CircleDetailDto?, val sharing: SharingStateDto?, val layers: MapLayers)
+private data class Base(val circles: List<CircleSummaryDto>, val selected: String?, val detail: CircleDetailDto?, val sharing: SharingStateDto?, val layers: MapLayers, val provider: app.locana.data.prefs.MapProvider)
 
 private data class Overlay(val places: List<PlaceDto> = emptyList(), val tiles: List<TileDto> = emptyList(), val territories: List<TerritorySummaryDto> = emptyList(), val landmarks: List<LandmarkDto> = emptyList())
 
@@ -201,7 +202,7 @@ class MapViewModel @Inject constructor(
 
     val ui: StateFlow<MapUi> = combine(
         combine(circles.circles, selection.selected, detail, location.sharing, settings.settings) { c, sel, d, sh, st ->
-            Base(c?.value.orEmpty(), sel, d, sh, st.layers)
+            Base(c?.value.orEmpty(), sel, d, sh, st.layers, st.mapProvider)
         },
         pins, combine(clock, compass.onStart { emit(null) }, me.me) { t, h, mine -> Live(t, h, mine) }, overlay, status,
     ) { base, rows, live, ov, st ->
@@ -228,8 +229,8 @@ class MapViewModel @Inject constructor(
             val localMode = when (local) { "vehicle" -> "DRIVING"; "cycling" -> "CYCLING"; "walking", "running" -> "WALKING"; else -> null }
             // Your own pin does not wait for the server: the phone's activity guess, or a clear speed on a good fix,
             // is enough, and the badge then stays for a short while so a step-and-pause does not make it flicker.
-            val ownSpeedNow = own?.takeIf { it.hasSpeed() && it.accuracy <= 25f && now - it.time <= 20_000 }?.speed ?: 0f
-            val seemsMoving = isMe && own != null && ((local != null && localMode != null) || ownSpeedNow >= 0.8f)
+            val ownSpeedNow = own?.takeIf { it.hasSpeed() && it.accuracy <= 50f && now - it.time <= 20_000 }?.speed ?: 0f
+            val seemsMoving = isMe && own != null && ((local != null && localMode != null) || ownSpeedNow >= 0.7f)
             if (seemsMoving) movingUntil[m.userId] = now + 25_000
             val holding = isMe && (movingUntil[m.userId] ?: 0L) > now && local != "still"
             val movement = when {
@@ -270,6 +271,7 @@ class MapViewModel @Inject constructor(
             sharing = sh,
             sharingHere = sh != null && !sh.globallyPaused && sh.sessions.any { it.circleId == sel && it.status == "ACTIVE" },
             layers = layers,
+            mapProvider = base.provider,
             places = ov.places,
             tiles = ov.tiles,
             territories = ov.territories,
@@ -440,6 +442,8 @@ class MapViewModel @Inject constructor(
             )
         }
     }
+
+    fun setMapProvider(p: app.locana.data.prefs.MapProvider) = viewModelScope.launch { settings.setMapProvider(p) }
 
     fun setLayers(l: MapLayers) = viewModelScope.launch { settings.setLayers(l) }
 

@@ -92,6 +92,7 @@ jobs:
           LOCANA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           LOCANA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
           GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
           # Repository variable; the build refuses anything that is not https.
           LOCANA_API_URL_RELEASE: ${{ vars.LOCANA_API_URL_RELEASE }}

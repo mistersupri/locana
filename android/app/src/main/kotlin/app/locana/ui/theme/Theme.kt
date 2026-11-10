@@ -44,6 +44,19 @@ fun LocanaTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> U
     val reduced = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     }
+    // The system bars follow the app's theme, not the phone's: dark icons on a light app, light icons on a dark one.
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            var c: android.content.Context = view.context
+            while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+            (c as? android.app.Activity)?.window?.let { w ->
+                val controller = androidx.core.view.WindowCompat.getInsetsController(w, view)
+                controller.isAppearanceLightStatusBars = !dark
+                controller.isAppearanceLightNavigationBars = !dark
+            }
+        }
+    }
     CompositionLocalProvider(
         LocalReward provides if (dark) DarkReward else LightReward,
         LocalHero provides if (dark) DarkHero else LightHero,

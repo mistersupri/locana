@@ -6,6 +6,7 @@ import { ApiError } from '../common/errors';
 import { haversineM } from '../common/geo';
 import { APP_ENV, AppEnv } from '../config/env';
 import { ExplorationService, TrustedSample } from '../game/exploration.service';
+import { SharingService } from './sharing.service';
 import { PlacesService } from '../places/places.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeBus } from '../realtime/realtime-bus';
@@ -27,6 +28,7 @@ export class LocationService {
     private readonly access: CircleAccessService,
     private readonly bus: RealtimeBus,
     private readonly places: PlacesService,
+    private readonly sharingSessions: SharingService,
     private readonly exploration: ExplorationService,
     @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
@@ -38,6 +40,8 @@ export class LocationService {
    */
   async ingest(userId: string, input: LocationSampleDto[]) {
     const privacy = await this.prisma.userPrivacySettings.findUniqueOrThrow({ where: { userId } });
+    // Belonging to a circle means sharing with it: make sure the session exists before deciding what to keep.
+    await this.sharingSessions.ensureSessions(userId);
     const sharingCircles = await this.access.sharingCircleIds(userId);
     const sharing = sharingCircles.length > 0;
     if (!sharing && !privacy.explorationEnabled) {
@@ -114,7 +118,8 @@ export class LocationService {
           "recordedAt" = EXCLUDED."recordedAt", "receivedAt" = EXCLUDED."receivedAt", "batteryPct" = EXCLUDED."batteryPct"
         WHERE "LatestLocation"."recordedAt" < EXCLUDED."recordedAt"`;
 
-      if (sharing && privacy.historyEnabled) await this.appendHistory(userId, accepted);
+      // The person's own trail is theirs: it is kept whenever history is on, even while nobody is being shown their position.
+      if (privacy.historyEnabled) await this.appendHistory(userId, accepted);
       if (sharing) {
         await this.places.processSamples(
           userId,

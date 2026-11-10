@@ -31,6 +31,8 @@ Not verified yet: running on a real device or emulator (no hardware acceleration
 ```
 sdk.dir=/path/to/Android/sdk
 MAPS_API_KEY=your-android-restricted-maps-key
+# Optional: the Mapbox look for the map (Map layers → Map style). Mapbox tiles are drawn inside the Google map.
+MAPBOX_ACCESS_TOKEN=pk.your-public-token
 GOOGLE_SERVER_CLIENT_ID=your-web-oauth-client-id.apps.googleusercontent.com
 LOCANA_API_URL_DEBUG=http://10.0.2.2:3000/
 LOCANA_API_URL_STAGING=https://staging-api.example.com/

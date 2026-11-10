@@ -69,11 +69,12 @@ internal fun captionFor(m: MemberPin, place: PlaceDto?, nowMs: Long): Caption {
  * pin's dot so the dot sits on the exact coordinate.
  */
 @Composable
-fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (String) -> Unit) {
+fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, focusedId: String? = null, onClick: (String) -> Unit) {
     val density = LocalDensity.current.density
     val accent = MaterialTheme.colorScheme.primary.toArgb()
     val frame = LocalReward.current.reward.toArgb()
     val now = System.currentTimeMillis()
+    val halo = remember(accent, density) { BitmapDescriptorFactory.fromBitmap(renderHalo(accent, density)) }
     val cone = remember(accent, density) { BitmapDescriptorFactory.fromBitmap(renderHeadingCone(accent, density)) }
     members.filter { it.lat != null && it.lon != null && it.presence != Presence.HIDDEN }.forEach { m -> androidx.compose.runtime.key(m.userId) {
         val position = rememberGlidingLatLng(LatLng(m.lat!!, m.lon!!))
@@ -96,10 +97,21 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, onClick: (St
             bubbleLabel = caption.label,
             bubbleValue = caption.value,
             emoji = caption.emoji,
+            highlighted = m.userId == focusedId,
         )
         val pin = remember(spec, density) { renderPin(spec, density, photo).let { BitmapDescriptorFactory.fromBitmap(it.bitmap) to it.anchorY } }
         val state = remember(m.userId) { MarkerState(position) }
         state.position = position
+        if (m.userId == focusedId) {
+            Marker(
+                state = remember(m.userId + "halo") { MarkerState(position) }.also { it.position = position },
+                icon = halo,
+                anchor = Offset(0.5f, 0.5f),
+                flat = true,
+                zIndex = 0.2f,
+                onClick = { onClick(m.userId); true },
+            )
+        }
         val heading = m.bearingDeg
         if (heading != null && m.presence == Presence.LIVE) {
             Marker(

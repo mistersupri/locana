@@ -73,7 +73,12 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.ui.semantics.liveRegion
 import app.locana.ui.components.ChunkyButton
 import app.locana.ui.components.ChunkyStyle
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MaterialTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import app.locana.ui.components.LocanaSwitch
@@ -213,8 +218,27 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val placeColor = MaterialTheme.colorScheme.secondary
 
     val bar = app.locana.ui.LocalBarInset.current
+    val mapbox = ui.mapProvider == app.locana.data.prefs.MapProvider.MAPBOX && BuildConfig.HAS_MAPBOX
+    // Where the drawer's top edge settles. The map is padded by it, so the camera's centre is the middle of what is
+    // really visible between the header and the drawer: that is where a followed person's pin is kept.
+    val densityNow = androidx.compose.ui.platform.LocalDensity.current.density
+    var scaffoldHeightPx by remember { mutableStateOf(0) }
+    var sheetTopPx by remember { mutableStateOf(0f) }
+    LaunchedEffect(scaffold) {
+        androidx.compose.runtime.snapshotFlow { runCatching { scaffold.bottomSheetState.requireOffset() }.getOrNull() }
+            .filterNotNull()
+            .collectLatest { v -> if (sheetTopPx == 0f) sheetTopPx = v else { delay(140); sheetTopPx = v } }
+    }
+    val visibleBottomPad = if (scaffoldHeightPx > 0 && sheetTopPx > 0f) ((scaffoldHeightPx - sheetTopPx) / densityNow).dp else 0.dp
+    // When the drawer settles at a new height, put the followed pin back in the middle of what is left visible.
+    LaunchedEffect(visibleBottomPad) {
+        val m = focusedMember
+        if (focusedId != null && m?.lat != null && m.lon != null && followedId == focusedId) camera.animate(CameraUpdateFactory.newLatLng(LatLng(m.lat, m.lon)), 350)
+    }
+
     val statusTop = androidx.compose.foundation.layout.WindowInsets.Companion.statusBars.asPaddingValues().calculateTopPadding()
     BottomSheetScaffold(
+        modifier = Modifier.onSizeChanged { scaffoldHeightPx = it.height },
         scaffoldState = scaffold,
         // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
         // The sheet reaches the bottom of the screen; the peek leaves room for the tab bar floating over it.
@@ -262,16 +286,21 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = camera,
                     properties = MapProperties(
+                        mapType = if (mapbox) com.google.maps.android.compose.MapType.NONE else com.google.maps.android.compose.MapType.NORMAL,
                         // Members (you included) are drawn as pins at your live fix, so the system dot would be a second, confusing position.
                         isMyLocationEnabled = perms.anyLocation && ui.noCircles,
-                        mapStyleOptions = MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
+                        mapStyleOptions = if (mapbox) null else MapStyleOptions.loadRawResourceStyle(context, if (dark) R.raw.map_style_dark else R.raw.map_style_light),
                     ),
                     uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
                     // Restaurants, shops and buildings drawn by Google are tappable: a card with details opens.
                     onPOIClick = { p -> vm.selectPoi(p.placeId, p.name, p.latLng.latitude, p.latLng.longitude) },
                     onMapClick = { vm.clearPoi() },
-                    contentPadding = PaddingValues(top = 76.dp, bottom = if (focusedId != null) (screenHeight * 0.66f).dp else pad.calculateBottomPadding()),
+                    contentPadding = PaddingValues(top = 76.dp + statusTop, bottom = if (visibleBottomPad > 0.dp) visibleBottomPad else pad.calculateBottomPadding()),
                 ) {
+                    if (mapbox) {
+                        val provider = remember(dark) { mapboxTileProvider(BuildConfig.MAPBOX_TOKEN, dark) }
+                        com.google.maps.android.compose.TileOverlay(tileProvider = provider, zIndex = -1f)
+                    }
                     if (ui.layers.tiles) ui.tiles.forEach { t ->
                         Polygon(
                             points = listOf(LatLng(t.north, t.west), LatLng(t.north, t.east), LatLng(t.south, t.east), LatLng(t.south, t.west)),
@@ -309,7 +338,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                             alpha = if (l.visited) 0.7f else 1f,
                         )
                     }
-                    if (ui.layers.members) MemberMarkers(ui.members, ui.places) { vm.focus(it) }
+                    if (ui.layers.members) MemberMarkers(ui.members, ui.places, focusedId) { vm.focus(it) }
                     nearby.kind?.let { kind ->
                         val density = androidx.compose.ui.platform.LocalDensity.current.density
                         nearby.places.forEach { p ->
@@ -329,6 +358,20 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
             } else {
                 MissingMapKey(Modifier.fillMaxSize())
             }
+
+            // Mapbox asks for its credit whenever its map is shown.
+            if (mapbox && BuildConfig.HAS_MAPS_KEY) Text(
+                MAPBOX_ATTRIBUTION,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF1F1645),
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = above + 62.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.78f)).padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+
+            // A soft wash under the status bar so its icons stay readable over any part of the map.
+            Box(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().height(statusTop + 14.dp)
+                    .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), Color.Transparent))),
+            )
 
             // Top row, as in the reference: settings, circle switcher, notifications. While a person is focused: back and their name.
             Row(
@@ -461,7 +504,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     }
 
     if (layersOpen) {
-        ModalBottomSheet(onDismissRequest = { layersOpen = false }) { LayersSheet(ui.layers, vm::setLayers) }
+        ModalBottomSheet(onDismissRequest = { layersOpen = false }) { LayersSheet(ui.layers, vm::setLayers, ui.mapProvider, vm::setMapProvider) }
     }
 }
 
@@ -623,8 +666,19 @@ private fun MemberRow(m: MemberPin, place: PlaceDto?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LayersSheet(l: MapLayers, onChange: (MapLayers) -> Unit) {
+private fun LayersSheet(l: MapLayers, onChange: (MapLayers) -> Unit, provider: app.locana.data.prefs.MapProvider, onProvider: (app.locana.data.prefs.MapProvider) -> Unit) {
     Column(Modifier.padding(bottom = 32.dp)) {
+        Text("Map style", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        app.locana.ui.components.Segmented(
+            listOf(app.locana.data.prefs.MapProvider.GOOGLE to "Google", app.locana.data.prefs.MapProvider.MAPBOX to "Mapbox"),
+            provider, { onProvider(it) }, Modifier.padding(horizontal = 24.dp),
+        )
+        Text(
+            if (BuildConfig.HAS_MAPBOX) "Mapbox draws the base map; pins, tiles and places stay the same. Search for places still uses Google."
+            else "Mapbox is not set up in this build (it needs a MAPBOX_ACCESS_TOKEN), so the Google map is used.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        )
         Text("Map layers", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         LayerRow("Circle members", "Everyone sharing with you", l.members) { onChange(l.copy(members = it)) }
         LayerRow("Saved places", "Geofences for arrival alerts", l.places) { onChange(l.copy(places = it)) }

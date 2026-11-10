@@ -138,7 +138,7 @@ internal fun MemberDetail(
                 item {
                     EmptyState(
                         if (focus.points > 0) "Collecting ${dayLabel(focus.day).lowercase()}" else "Nothing recorded for ${dayLabel(focus.day).lowercase()}",
-                        if (focus.points > 0) "${focus.points} positions so far. A place shows up after 5 minutes in one spot, a trip once about 30 m have been covered."
+                        if (focus.points > 0) "${focus.points} positions so far. A place shows up after 10 minutes in one spot, a trip once about 30 m have been covered."
                         else "A place is recorded after 5 minutes in one spot and a trip while travelling, once location is on and Locana has been running for a few minutes. Days older than the history limit are removed.",
                     )
                 }
