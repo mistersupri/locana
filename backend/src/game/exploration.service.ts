@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Landmark } from '@prisma/client';
 import { boundingBox, haversineM, parseTileKey, tileBounds, tileFor, tileKey } from '../common/geo';
 import { dayKey } from '../common/periods';
 import { isOnFootSpeed } from '../location/location-validation';
@@ -92,30 +93,7 @@ export class ExplorationService {
       await this.challenges.bump(tx, userId, 'TILES', 1, fx);
     }
 
-    // ── landmarks ──
-    if (s.accuracyM <= EXPLORATION_RULES.landmarkMaxAccuracyM) {
-      const bb = boundingBox(s.latitude, s.longitude, 2_000);
-      const nearby = await tx.landmark.findMany({
-        where: { active: true, latitude: { gte: bb.minLat, lte: bb.maxLat }, longitude: { gte: bb.minLon, lte: bb.maxLon } },
-      });
-      for (const lm of nearby) {
-        if (haversineM(s.latitude, s.longitude, lm.latitude, lm.longitude) > lm.radiusM) continue;
-        const v = await tx.$queryRaw<{ inserted: boolean }[]>`
-          INSERT INTO "LandmarkVisit" ("userId", "landmarkId") VALUES (${userId}::uuid, ${lm.id}::uuid)
-          ON CONFLICT ("userId", "landmarkId") DO UPDATE SET "count" = "LandmarkVisit"."count" + 1, "lastAt" = now()
-          RETURNING (xmax = 0) AS inserted`;
-        const first = v[0]?.inserted === true;
-        fx.landmarks.push({ id: lm.id, name: lm.name, firstVisit: first });
-        if (first) {
-          await this.xp.grant(tx, userId, lm.rewardXp, 'LANDMARK', lm.id, fx);
-          if (lm.collectibleCode) await this.xp.grantCollectible(tx, userId, lm.collectibleCode, `landmark:${lm.code}`, fx);
-          await tx.dailyActivityStat.update({ where: { userId_day: { userId, day: dayDate } }, data: { landmarks: { increment: 1 } } });
-          await this.challenges.bump(tx, userId, 'LANDMARKS', 1, fx);
-        }
-        events.push({ kind: 'LANDMARK', landmarkId: lm.id, setCode: lm.setCode });
-        if (profile.teamCircleId) await this.territories.recordVisit(tx, userId, profile.teamCircleId, lm.id, fx);
-      }
-    }
+    // Landmarks are not collected by walking past: the player claims them (see claimLandmark).
 
     // ── walking distance ──
     const speed = s.speedMps ?? s.impliedSpeedMps;
@@ -137,6 +115,55 @@ export class ExplorationService {
     }
 
     await this.quests.applyEvents(tx, userId, events, fx);
+  }
+
+  /**
+   * Unlocks a landmark. The player must be inside its radius with a decent fix; being nearby only makes the
+   * Claim button appear. The first claim pays XP and the stamp, a later one only counts for a team territory.
+   */
+  async claimLandmark(userId: string, landmarkId: string, fix: { latitude: number; longitude: number; accuracyM: number }) {
+    const lm = await this.prisma.landmark.findFirst({ where: { id: landmarkId, active: true } });
+    if (!lm) throw new NotFoundException('Landmark not found');
+    if (fix.accuracyM > EXPLORATION_RULES.landmarkMaxAccuracyM) {
+      throw new UnprocessableEntityException(`Your location is too rough to claim (${Math.round(fix.accuracyM)} m). Go outside or wait for a better fix.`);
+    }
+    const distance = Math.round(haversineM(fix.latitude, fix.longitude, lm.latitude, lm.longitude));
+    if (distance > lm.radiusM) {
+      throw new UnprocessableEntityException(`You are ${distance} m from ${lm.name}. Get within ${lm.radiusM} m to claim it.`);
+    }
+    const fx = emptyEffects();
+    await this.quests.ensureQuests(userId);
+    let firstVisit = false;
+    await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.userProfile.findUniqueOrThrow({ where: { userId } });
+      const day = dayKey(new Date());
+      const dayDate = new Date(`${day}T00:00:00Z`);
+      await tx.dailyActivityStat.upsert({ where: { userId_day: { userId, day: dayDate } }, create: { userId, day: dayDate }, update: {} });
+      const events: GameEvent[] = [];
+      firstVisit = await this.recordVisit(tx, userId, lm, profile.teamCircleId, dayDate, fx, events);
+      await this.quests.applyEvents(tx, userId, events, fx);
+    });
+    await this.prisma.$transaction(async (tx) => this.achievements.evaluate(tx, userId, fx));
+    await this.publisher.publish(userId, fx);
+    return { id: lm.id, name: lm.name, firstVisit, rewardXp: firstVisit ? lm.rewardXp : 0, effects: fx };
+  }
+
+  private async recordVisit(tx: Tx, userId: string, lm: Landmark, teamCircleId: string | null, dayDate: Date, fx: GameEffects, events: GameEvent[]): Promise<boolean> {
+    const v = await tx.$queryRaw<{ inserted: boolean }[]>`
+      INSERT INTO "LandmarkVisit" ("userId", "landmarkId") VALUES (${userId}::uuid, ${lm.id}::uuid)
+      ON CONFLICT ("userId", "landmarkId") DO UPDATE SET "count" = "LandmarkVisit"."count" + 1, "lastAt" = now()
+      RETURNING (xmax = 0) AS inserted`;
+    const first = v[0]?.inserted === true;
+    fx.landmarks.push({ id: lm.id, name: lm.name, firstVisit: first });
+    if (first) {
+      await this.xp.grant(tx, userId, lm.rewardXp, 'LANDMARK', lm.id, fx);
+      if (lm.collectibleCode) await this.xp.grantCollectible(tx, userId, lm.collectibleCode, `landmark:${lm.code}`, fx);
+      await tx.dailyActivityStat.update({ where: { userId_day: { userId, day: dayDate } }, data: { landmarks: { increment: 1 } } });
+      await this.challenges.bump(tx, userId, 'LANDMARKS', 1, fx);
+    }
+    events.push({ kind: 'LANDMARK', landmarkId: lm.id, setCode: lm.setCode });
+    if (teamCircleId) await this.territories.recordVisit(tx, userId, teamCircleId, lm.id, fx);
+    return first;
   }
 
   private async updateStreak(tx: Tx, userId: string, today: Date) {

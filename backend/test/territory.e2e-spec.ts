@@ -30,10 +30,10 @@ describe('territory concurrency', () => {
       await api(app, m).patch('/me', { teamCircleId: circle.body.id }).expect(200);
     }
 
-    const results = await Promise.all(members.map((m) => api(app, m).post('/location', { samples: [sample(ISTIQLAL.lat, ISTIQLAL.lon, 1)] })));
-    for (const r of results) expect(r.status).toBe(200);
-
     const lm = await prisma.landmark.findUniqueOrThrow({ where: { code: 'istiqlal' }, include: { territory: true } });
+    const results = await Promise.all(members.map((m) => api(app, m).post(`/landmarks/${lm.id}/claim`, { latitude: ISTIQLAL.lat, longitude: ISTIQLAL.lon, accuracyM: 5 })));
+    for (const r of results) expect(r.status).toBe(201);
+
     const t = await api(app, owner).get(`/territories/${lm.territory!.id}`).expect(200);
     expect(t.body.leaderboard[0]).toMatchObject({ circleId: circle.body.id, score: members.length });
     expect(t.body.ownerCircleId).toBe(circle.body.id);

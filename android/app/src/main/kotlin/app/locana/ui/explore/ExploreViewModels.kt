@@ -161,6 +161,13 @@ class LandmarksViewModel @Inject constructor(
     val query = MutableStateFlow("")
     private var job: Job? = null
     private var origin: Pair<Double, Double>? = null
+    private var accuracyM: Double = 999.0
+    private val _message = MutableStateFlow<String?>(null)
+    /** Outcome of the last Claim press, shown once. */
+    val message: StateFlow<String?> = _message.asStateFlow()
+    fun messageShown() { _message.value = null }
+    private val _claiming = MutableStateFlow<String?>(null)
+    val claiming: StateFlow<String?> = _claiming.asStateFlow()
     private val _located = MutableStateFlow(true)
     /** False when no recent fix exists: the list is then shown without distances. */
     val located: StateFlow<Boolean> = _located.asStateFlow()
@@ -169,14 +176,28 @@ class LandmarksViewModel @Inject constructor(
 
     @android.annotation.SuppressLint("MissingPermission")
     private suspend fun here(): Pair<Double, Double> {
-        origin?.let { return it }
         val loc = if (tracking.refreshPermissions().anyLocation) {
             runCatching { LocationServices.getFusedLocationProviderClient(context).lastLocation.await() }.getOrNull()
         } else null
         _located.value = loc != null
+        accuracyM = loc?.accuracy?.toDouble() ?: 999.0
         // Without a fix the server still needs a point to search around; the UI then hides distances,
         // because they would be measured from this fallback (central Jakarta), not from the user.
         return (loc?.let { it.latitude to it.longitude } ?: (-6.1754 to 106.8272)).also { if (loc != null) origin = it }
+    }
+
+    /** Unlocks a landmark the player is standing at. The server checks the distance again. */
+    fun claim(l: LandmarkDto) {
+        viewModelScope.launch {
+            _claiming.value = l.id
+            val (lat, lon) = here()
+            _message.value = game.claimLandmark(l.id, lat, lon, accuracyM).fold(
+                { if (it.firstVisit) "${it.name} unlocked! +${it.rewardXp} XP" else "You are already here: ${it.name} was unlocked before." },
+                { it.message ?: "Couldn't claim ${l.name}" },
+            )
+            _claiming.value = null
+            search()
+        }
     }
 
     fun onQuery(q: String) {

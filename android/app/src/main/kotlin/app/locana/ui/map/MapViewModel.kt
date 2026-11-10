@@ -108,6 +108,8 @@ data class MapUi(
     val tiles: List<TileDto> = emptyList(),
     val territories: List<TerritorySummaryDto> = emptyList(),
     val landmarks: List<LandmarkDto> = emptyList(),
+    /** A locked landmark the player is standing at: the map offers to claim it. */
+    val claimable: LandmarkDto? = null,
     val refreshing: Boolean = false,
     val error: String? = null,
     val noCircles: Boolean = false,
@@ -185,7 +187,7 @@ class MapViewModel @Inject constructor(
     /** This phone's compass, only while the map is on screen. */
     private val compass = flow<Float?> { emitAll(heading.live { lastFix }) }
 
-    private data class Live(val tick: Tick, val heading: Float?)
+    private data class Live(val tick: Tick, val heading: Float?, val me: app.locana.data.api.MeDto?)
 
     @SuppressLint("MissingPermission")
     private suspend fun ownFix(): android.location.Location? {
@@ -200,7 +202,7 @@ class MapViewModel @Inject constructor(
         combine(circles.circles, selection.selected, detail, location.sharing, settings.settings) { c, sel, d, sh, st ->
             Base(c?.value.orEmpty(), sel, d, sh, st.layers)
         },
-        pins, combine(clock, compass.onStart { emit(null) }) { t, h -> Live(t, h) }, overlay, status,
+        pins, combine(clock, compass.onStart { emit(null) }, me.me) { t, h, mine -> Live(t, h, mine) }, overlay, status,
     ) { base, rows, live, ov, st ->
         val tick = live.tick
         val now = tick.now
@@ -208,7 +210,8 @@ class MapViewModel @Inject constructor(
         val d = base.detail?.takeIf { it.id == sel }
         val sh = base.sharing
         val layers = base.layers
-        val meId = me.me.value?.id
+        val meNow = live.me
+        val meId = meNow?.id
         val byId = rows.associateBy { it.userId }
         val members = if (d == null) emptyList() else d.members.map { m ->
             val r = byId[m.userId]
@@ -231,10 +234,11 @@ class MapViewModel @Inject constructor(
             val ownSpeed = own?.takeIf { it.hasSpeed() && now - it.time <= 90_000 }?.speed?.toDouble()
             MemberPin(
                 userId = m.userId,
-                name = m.displayName,
-                avatarKey = m.avatarKey,
-                photoVersion = m.avatarPhotoVersion,
-                framed = m.avatarFrameKey != null,
+                // Your own look comes straight from your profile, so an edit shows at once; the circle's copy catches up later.
+                name = if (isMe && meNow != null) meNow.profile.displayName else m.displayName,
+                avatarKey = if (isMe && meNow != null) meNow.profile.avatarKey else m.avatarKey,
+                photoVersion = if (isMe && meNow != null) meNow.profile.avatarPhotoVersion else m.avatarPhotoVersion,
+                framed = (if (isMe && meNow != null) meNow.profile.avatarFrameKey else m.avatarFrameKey) != null,
                 presence = if (own != null) Presence.LIVE.let { Freshness.presence(it, recordedAt, now) } else Freshness.presence(serverPresence, r?.recordedAtMs, now),
                 lat = own?.latitude ?: r?.latitude, lon = own?.longitude ?: r?.longitude, accuracyM = own?.accuracy?.toDouble() ?: r?.accuracyM,
                 recordedAtMs = recordedAt,
@@ -262,6 +266,11 @@ class MapViewModel @Inject constructor(
             tiles = ov.tiles,
             territories = ov.territories,
             landmarks = ov.landmarks,
+            claimable = tick.fix?.takeIf { it.accuracy <= 40f && now - it.time < 2 * 60_000 }?.let { f ->
+                ov.landmarks.filter { !it.visited && !claimed.contains(it.id) }
+                    .map { it to FloatArray(1).also { r -> android.location.Location.distanceBetween(f.latitude, f.longitude, it.latitude, it.longitude, r) }[0] }
+                    .filter { (l, d) -> d <= l.radiusM }.minByOrNull { it.second }?.first
+            },
             refreshing = st.first,
             error = st.second,
             noCircles = st.third,
@@ -400,6 +409,27 @@ class MapViewModel @Inject constructor(
                 if (cur == null || cur.userId != userId || cur.day != day || list == null || idx >= list.size) cur
                 else cur.copy(items = app.locana.ui.components.UiState.Data(list.toMutableList().also { l -> (l[idx] as? app.locana.ui.timeline.TimelineItem.Stay)?.let { l[idx] = it.copy(title = name, unnamed = false) } }))
             }
+        }
+    }
+
+    private val claimed = java.util.Collections.synchronizedSet(HashSet<String>())
+    private val _claimMessage = MutableStateFlow<String?>(null)
+    /** Outcome of the last Claim press on the map, shown once. */
+    val claimMessage: StateFlow<String?> = _claimMessage.asStateFlow()
+    fun claimShown() { _claimMessage.value = null }
+
+    fun claim(l: LandmarkDto) {
+        val fix = lastFix ?: return
+        viewModelScope.launch {
+            _claimMessage.value = game.claimLandmark(l.id, fix.latitude, fix.longitude, fix.accuracy.toDouble()).fold(
+                {
+                    claimed.add(l.id)
+                    landmarkCache[l.id] = l.copy(visited = true)
+                    overlay.update { o -> o.copy(landmarks = landmarkCache.values.toList()) }
+                    if (it.firstVisit) "${it.name} unlocked! +${it.rewardXp} XP" else "${it.name} was already unlocked"
+                },
+                { it.message ?: "Couldn't claim ${l.name}" },
+            )
         }
     }
 

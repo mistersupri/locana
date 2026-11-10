@@ -287,6 +287,8 @@ data class ClaimResultDto(
 @Serializable data class CircleExplorationDto(val totalTiles: Int, val members: List<CircleExplorerDto>, val hiddenMembers: Int)
 
 @Serializable data class LandmarkDto(val id: String, val code: String, val name: String, val description: String, val category: String, val latitude: Double, val longitude: Double, val radiusM: Int, val rewardXp: Int, val setCode: String? = null, val visited: Boolean, val territoryId: String? = null, val distanceM: Int)
+@Serializable data class ClaimLandmarkBody(val latitude: Double, val longitude: Double, val accuracyM: Double)
+@Serializable data class ClaimLandmarkResultDto(val id: String, val name: String, val firstVisit: Boolean, val rewardXp: Int)
 @Serializable data class TerritorySummaryDto(val id: String, val name: String, val landmarkId: String, val latitude: Double, val longitude: Double, val radiusM: Int, val ownerCircleId: String? = null, val ownerCircleName: String? = null, val ownedByMyCircle: Boolean, val expiresAt: String? = null)
 @Serializable data class TerritoryLandmarkDto(val id: String, val name: String, val category: String, val latitude: Double, val longitude: Double, val radiusM: Int)
 @Serializable data class TerritoryRulesDto(val claimMinScore: Int, val holdDays: Int)

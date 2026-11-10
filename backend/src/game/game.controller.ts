@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AchievementsService } from './achievements.service';
 import { ChallengesService } from './challenges.service';
 import { ExplorationService } from './exploration.service';
+import { ClaimLandmarkDto } from './game.dto';
 import { BoardMetric, BoardPeriod, BoardScope, LeaderboardService } from './leaderboard.service';
 import { LevelService } from './level.service';
 import { QuestsService } from './quests.service';
@@ -154,6 +155,11 @@ export class GameController {
       radius ? num(radius, 'radiusM', 100, 50_000) : 5_000,
       q,
     );
+  }
+
+  @Post('landmarks/:id/claim')
+  claimLandmark(@CurrentUser() u: AuthUser, @Param('id', uuid) id: string, @Body() b: ClaimLandmarkDto) {
+    return this.exploration.claimLandmark(u.id, id, b);
   }
 
   @Get('territories')

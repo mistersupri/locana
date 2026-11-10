@@ -66,6 +66,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.ui.semantics.liveRegion
+import app.locana.ui.components.ChunkyButton
+import app.locana.ui.components.ChunkyStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -288,7 +292,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                         Marker(
                             state = remember(l.id) { MarkerState(LatLng(l.latitude, l.longitude)) },
                             title = l.name,
-                            snippet = if (l.visited) "Visited" else "+${l.rewardXp} XP on your first visit",
+                            snippet = if (l.visited) "Unlocked" else "Locked · get within ${l.radiusM} m to claim, +${l.rewardXp} XP",
                             icon = BitmapDescriptorFactory.defaultMarker(if (l.visited) BitmapDescriptorFactory.HUE_AZURE else 172f),
                             alpha = if (l.visited) 0.7f else 1f,
                         )
@@ -353,6 +357,31 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                             Icon(Icons.Outlined.LocationOff, contentDescription = null, modifier = Modifier.size(20.dp))
                             Text("Allow location so your circle can see you", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.weight(1f))
                             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, modifier = Modifier.rotate(-90f))
+                        }
+                    }
+                }
+            }
+
+            // Standing at a locked landmark: offer to unlock it. Anything the claim answers is shown in the same spot.
+            val claimMessage by vm.claimMessage.collectAsStateWithLifecycle()
+            val claimable = ui.claimable
+            if (focusedId == null && (claimable != null || claimMessage != null)) {
+                val tk = LocalTokens.current
+                Surface(
+                    shape = RoundedCornerShape(22.dp), color = tk.card, shadowElevation = 6.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 76.dp, bottom = above).fillMaxWidth().semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                ) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (claimMessage != null) {
+                            Text(claimMessage!!, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            ChunkyButton("OK", { vm.claimShown() }, compact = true, style = ChunkyStyle.Secondary)
+                        } else if (claimable != null) {
+                            Icon(Icons.Outlined.LockOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f)) {
+                                Text(claimable.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
+                                Text("You're here. Unlock it for +${claimable.rewardXp} XP", style = MaterialTheme.typography.bodySmall, color = tk.ink2)
+                            }
+                            ChunkyButton("Claim", { vm.claim(claimable) }, compact = true)
                         }
                     }
                 }

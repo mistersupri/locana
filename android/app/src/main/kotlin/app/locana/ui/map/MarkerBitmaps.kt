@@ -44,7 +44,7 @@ class RenderedPin(val bitmap: Bitmap, /** 0..1 from the top: where the person's 
 private const val AVATAR = 66f
 private const val RADIUS = 24f
 private const val RING = 4f
-private const val EDGE = 4f
+private const val TAIL = 10f
 private const val DOT = 14f
 private const val BUBBLE_H = 46f
 
@@ -52,10 +52,6 @@ private fun paint(color: Int = Color.BLACK, style: Paint.Style = Paint.Style.FIL
     this.color = color
     this.style = style
 }
-
-private fun darken(c: Int, by: Float): Int = Color.rgb(
-    (Color.red(c) * (1 - by)).toInt(), (Color.green(c) * (1 - by)).toInt(), (Color.blue(c) * (1 - by)).toInt(),
-)
 
 /**
  * A member on the map, as drawn in the mockup: a rounded-square avatar with a white ring and a solid
@@ -81,7 +77,8 @@ fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin
     val bubbleTop = px(6f)
     val avatarTop = px(6f + if (hasBubble) BUBBLE_H - 14f else 0f) + px(RING)
     val avatarBottom = avatarTop + px(AVATAR)
-    val dotCenter = avatarBottom + px(RING + EDGE + 10f + DOT / 2)
+    val tailTip = avatarBottom + px(RING + TAIL)
+    val dotCenter = tailTip + px(DOT / 2 + 2f)
     val height = (dotCenter + px(DOT / 2 + 8f)).toInt()
 
     val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -112,16 +109,22 @@ fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin
         }
     }
 
-    // Avatar: solid edge, white ring, then the colour (or the photo) on top.
+    // Avatar: a rounded square with a ring, a soft shadow and a small arrow pointing down at the dot.
     val ringColor = if (spec.framed) spec.frameColor else Color.WHITE
     val face = if (spec.stale) 0xFFA99BD8.toInt() else spec.avatarColor
-    val edge = if (spec.stale) 0xFF7C6BB8.toInt() else darken(spec.avatarColor, 0.4f)
     val inner = RectF(cx - px(AVATAR / 2), avatarTop, cx + px(AVATAR / 2), avatarBottom)
     val outer = RectF(inner).apply { inset(-px(RING), -px(RING)) }
-    val edgeRect = RectF(outer).apply { offset(0f, px(EDGE)) }
-    val soft = paint(edge).apply { setShadowLayer(px(6f), 0f, px(4f), 0x30000000) }
-    c.drawRoundRect(edgeRect, px(RADIUS + RING), px(RADIUS + RING), soft)
+    val tail = Path().apply {
+        moveTo(cx - px(9f), outer.bottom - px(3f))
+        lineTo(cx, tailTip)
+        lineTo(cx + px(9f), outer.bottom - px(3f))
+        close()
+    }
+    val lifted = paint(ringColor).apply { setShadowLayer(px(6f), 0f, px(2f), 0x40000000) }
+    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), lifted)
+    c.drawPath(tail, lifted)
     c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), paint(ringColor))
+    c.drawPath(tail, paint(ringColor))
     c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint(face))
     if (photo != null) {
         val scaled = Bitmap.createScaledBitmap(photo, inner.width().toInt(), inner.height().toInt(), true)

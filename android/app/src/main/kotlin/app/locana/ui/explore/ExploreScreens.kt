@@ -79,6 +79,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import app.locana.ui.components.ChunkyButton
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -514,8 +518,17 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val q by vm.query.collectAsStateWithLifecycle()
     val located by vm.located.collectAsStateWithLifecycle()
+    val message by vm.message.collectAsStateWithLifecycle()
+    val claiming by vm.claiming.collectAsStateWithLifecycle()
     BackScaffold("Landmarks", nav) { pad ->
         Column(Modifier.padding(pad)) {
+            message?.let { m ->
+                val t = LocalTokens.current
+                Row(
+                    Modifier.padding(horizontal = 20.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(t.mintSoft).clickable { vm.messageShown() }.padding(14.dp).semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { Text(m, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
+            }
             Row(
                 Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(LocalTokens.current.card).border(2.dp, LocalTokens.current.line, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -570,11 +583,28 @@ fun LandmarksScreen(nav: NavController, vm: LandmarksViewModel = hiltViewModel()
                                 "park" -> Triple(Icons.Outlined.Park, t.mintSoft, Color(0xFF0E8A5D))
                                 else -> Triple(Icons.Outlined.Museum, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
                             }
+                            val inRange = located && !l.visited && l.distanceM <= l.radiusM
                             ListRowCard(
                                 title = l.name,
-                                subtitle = listOfNotNull(l.category.replaceFirstChar { it.uppercase() }, "${Formatting.distance(l.distanceM)} away".takeIf { located }, l.description).joinToString(" · "),
-                                icon = icon, tileColor = tile, tileTint = tint,
-                                trailing = { if (l.visited) StatusChip("Visited") else XpChip(l.rewardXp) },
+                                subtitle = listOfNotNull(
+                                    l.category.replaceFirstChar { it.uppercase() },
+                                    when {
+                                        l.visited -> "Unlocked"
+                                        inRange -> "You're here: claim it"
+                                        located -> "Locked · ${Formatting.distance(l.distanceM)} away, get within ${Formatting.distance(l.radiusM)}"
+                                        else -> "Locked"
+                                    },
+                                    l.description,
+                                ).joinToString(" · "),
+                                icon = if (l.visited) icon else Icons.Outlined.Lock, tileColor = if (l.visited) tile else t.skySoft, tileTint = if (l.visited) tint else t.ink3,
+                                modifier = Modifier.alpha(if (l.visited || inRange) 1f else 0.82f),
+                                trailing = {
+                                    when {
+                                        l.visited -> StatusChip("Unlocked")
+                                        inRange -> ChunkyButton("Claim", { vm.claim(l) }, compact = true, loading = claiming == l.id, icon = Icons.Outlined.LockOpen)
+                                        else -> XpChip(l.rewardXp)
+                                    }
+                                },
                                 onClick = l.territoryId?.let { id -> { nav.navigate(Routes.territory(id)) } },
                             )
                         }

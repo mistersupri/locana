@@ -315,8 +315,19 @@ describe('Locana end to end', () => {
       const r = await api(app, a)
         .post('/location', { samples: [sample(MONAS.lat - 0.0009, MONAS.lon, 70, { speedMps: 1.4 }), sample(MONAS.lat, MONAS.lon, 5, { speedMps: 1.4 })] })
         .expect(200);
-      expect(r.body.game.landmarks.some((l: { name: string; firstVisit: boolean }) => l.name === 'Monumen Nasional' && l.firstVisit)).toBe(true);
+      // Walking up to a landmark does not unlock it: the player has to claim it.
+      expect(r.body.game.landmarks).toEqual([]);
       expect(r.body.game.newTiles.length).toBeGreaterThan(0);
+      const monas = await prisma.landmark.findUniqueOrThrow({ where: { code: 'monas' } });
+      const claim = (lat: number, lon: number, accuracyM = 5) => api(app, a).post(`/landmarks/${monas.id}/claim`, { latitude: lat, longitude: lon, accuracyM });
+      await claim(MONAS.lat + 0.01, MONAS.lon).expect(422); // too far
+      await claim(MONAS.lat, MONAS.lon, 90).expect(422); // fix too rough
+      const c = await claim(MONAS.lat, MONAS.lon).expect(201);
+      expect(c.body).toMatchObject({ name: 'Monumen Nasional', firstVisit: true });
+      const again = await claim(MONAS.lat, MONAS.lon).expect(201);
+      expect(again.body).toMatchObject({ firstVisit: false, rewardXp: 0 });
+      const list = await api(app, a).get(`/landmarks?lat=${MONAS.lat}&lon=${MONAS.lon}&radiusM=500`).expect(200);
+      expect(list.body.find((l: { code: string }) => l.code === 'monas').visited).toBe(true);
       const q = await api(app, a).get(`/quests/${landmarkQuestId}`).expect(200);
       expect(q.body.status).toBe('COMPLETED');
     });
@@ -384,19 +395,19 @@ describe('Locana end to end', () => {
       const tid = lm.territory!.id;
       await travelTime(a.id);
       // A's next visit counts (first visit happened before a team was set).
-      await api(app, a).post('/location', { samples: [sample(MONAS.lat + 0.0003, MONAS.lon, 0)] }).expect(200);
+      await api(app, a).post(`/landmarks/${lm.id}/claim`, { latitude: MONAS.lat + 0.0003, longitude: MONAS.lon, accuracyM: 5 }).expect(201);
       let t = await api(app, outsider).get(`/territories/${tid}`).expect(200);
       expect(t.body.leaderboard[0]).toMatchObject({ circleName: 'Family', score: 1 });
       expect(JSON.stringify(t.body.leaderboard)).not.toMatch(new RegExp(a.id));
       // B opts into exploration and visits.
       await api(app, b).patch('/me/privacy', { explorationEnabled: true }).expect(200);
       await travelTime(b.id);
-      await api(app, b).post('/location', { samples: [sample(MONAS.lat, MONAS.lon, 0)] }).expect(200);
+      await api(app, b).post(`/landmarks/${lm.id}/claim`, { latitude: MONAS.lat, longitude: MONAS.lon, accuracyM: 5 }).expect(201);
       t = await api(app, a).get(`/territories/${tid}`).expect(200);
       expect(t.body.leaderboard[0].score).toBe(2);
       expect(t.body.ownerCircleId).toBeNull();
       // Same player, same day: no extra point.
-      await api(app, b).post('/location', { samples: [sample(MONAS.lat + 0.0002, MONAS.lon, 0)] }).expect(200);
+      await api(app, b).post(`/landmarks/${lm.id}/claim`, { latitude: MONAS.lat + 0.0002, longitude: MONAS.lon, accuracyM: 5 }).expect(201);
       t = await api(app, a).get(`/territories/${tid}`).expect(200);
       expect(t.body.leaderboard[0].score).toBe(2);
     });

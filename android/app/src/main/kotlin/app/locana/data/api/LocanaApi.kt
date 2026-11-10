@@ -103,6 +103,7 @@ interface LocanaApi {
     ): LeaderboardDto
     @GET("v1/exploration/tiles") suspend fun tiles(@Query("north") north: Double, @Query("south") south: Double, @Query("east") east: Double, @Query("west") west: Double): TilesDto
     @GET("v1/exploration/stats") suspend fun stats(): StatsDto
+    @POST("v1/landmarks/{id}/claim") suspend fun claimLandmark(@Path("id") id: String, @Body body: ClaimLandmarkBody): ClaimLandmarkResultDto
     @GET("v1/landmarks") suspend fun landmarks(@Query("lat") lat: Double, @Query("lon") lon: Double, @Query("radiusM") radiusM: Int?, @Query("q") query: String?): List<LandmarkDto>
     @GET("v1/territories") suspend fun territories(@Query("north") north: Double, @Query("south") south: Double, @Query("east") east: Double, @Query("west") west: Double): List<TerritorySummaryDto>
     @GET("v1/territories/{id}") suspend fun territory(@Path("id") id: String): TerritoryDetailDto

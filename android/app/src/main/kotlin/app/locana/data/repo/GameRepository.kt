@@ -51,6 +51,9 @@ class GameRepository @Inject constructor(private val api: LocanaApi, private val
     suspend fun tiles(b: TileBounds): Result<TilesDto> = apiCall { api.tiles(b.north, b.south, b.east, b.west) }
     suspend fun territories(b: TileBounds): Result<List<TerritorySummaryDto>> = apiCall { api.territories(b.north, b.south, b.east, b.west) }
     suspend fun territory(id: String): Result<TerritoryDetailDto> = apiCall { api.territory(id) }
+    suspend fun claimLandmark(id: String, lat: Double, lon: Double, accuracyM: Double): Result<app.locana.data.api.ClaimLandmarkResultDto> =
+        apiCall { api.claimLandmark(id, app.locana.data.api.ClaimLandmarkBody(lat, lon, accuracyM)) }
+
     suspend fun landmarks(lat: Double, lon: Double, query: String? = null): Result<List<LandmarkDto>> =
         apiCall { api.landmarks(lat, lon, null, query?.takeIf { it.isNotBlank() }) }
 }
