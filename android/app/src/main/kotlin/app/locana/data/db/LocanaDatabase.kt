@@ -26,6 +26,7 @@ data class PendingSample(
     val activity: String?,
     val isMock: Boolean,
     val batteryPct: Int?,
+    val driveEvent: String? = null,
 )
 
 /** Last member positions seen on this device. Shown with their age, never as "live" on their own. */
@@ -84,7 +85,7 @@ interface CacheDao {
     @Query("DELETE FROM cache") suspend fun clear()
 }
 
-@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 3, exportSchema = true)
+@Database(entities = [PendingSample::class, CachedMemberLocation::class, CacheEntry::class], version = 4, exportSchema = true)
 abstract class LocanaDatabase : RoomDatabase() {
     abstract fun pending(): PendingSampleDao
     abstract fun members(): MemberLocationDao
@@ -105,5 +106,12 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
 val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE member_locations ADD COLUMN mode TEXT")
+    }
+}
+
+/** Version 4 adds driving events (hard braking, rapid acceleration, phone use) to queued fixes. */
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE pending_samples ADD COLUMN driveEvent TEXT")
     }
 }

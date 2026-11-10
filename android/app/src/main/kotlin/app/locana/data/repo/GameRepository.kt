@@ -34,9 +34,13 @@ class GameRepository @Inject constructor(private val api: LocanaApi, private val
     suspend fun quest(id: String): Result<QuestDto> = apiCall { api.quest(id) }
     suspend fun questHistory(cursor: String?): Result<QuestPageDto> = apiCall { api.questHistory(cursor) }
 
+    private val _changed = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+    /** Fires when something the lists show changed (a quest was claimed), so screens showing them reload. */
+    val changed: kotlinx.coroutines.flow.SharedFlow<Unit> = _changed
+
     suspend fun claim(id: String): Result<ClaimResultDto> {
         val key = claimKeys.getOrPut(id) { UUID.randomUUID().toString().replace("-", "") }
-        return apiCall { api.claim(id, key) }.onSuccess { claimKeys.remove(id) }
+        return apiCall { api.claim(id, key) }.onSuccess { claimKeys.remove(id); _changed.tryEmit(Unit) }
     }
 
     suspend fun achievements(): Result<List<AchievementDto>> = apiCall { api.achievements() }

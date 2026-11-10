@@ -32,8 +32,8 @@ export class SafetyController {
   }
 
   @Get('quick-messages')
-  catalog() {
-    return this.safety.catalog();
+  catalog(@CurrentUser() u: AuthUser) {
+    return this.safety.catalog(u.id);
   }
 
   @Post('circles/:circleId/members/:userId/quick-message')

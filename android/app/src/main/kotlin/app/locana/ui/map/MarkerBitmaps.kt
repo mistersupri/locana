@@ -39,6 +39,8 @@ data class PinSpec(
     val emoji: String?,
     /** The person whose card is open: a violet ring instead of white, so the pin stands out from the rest. */
     val highlighted: Boolean = false,
+    /** The collection frame, drawn as a gradient ring (and a halo for the glowing ones). */
+    val frameKey: String? = null,
 )
 
 class RenderedPin(val bitmap: Bitmap, /** 0..1 from the top: where the person's position is. */ val anchorY: Float)
@@ -125,8 +127,15 @@ fun renderPin(spec: PinSpec, density: Float, photo: Bitmap? = null): RenderedPin
     val lifted = paint(ringColor).apply { setShadowLayer(px(6f), 0f, px(2f), 0x40000000) }
     c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), lifted)
     c.drawPath(tail, lifted)
-    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), paint(ringColor))
-    c.drawPath(tail, paint(ringColor))
+    val stops = if (spec.framed && !spec.highlighted) app.locana.ui.theme.FrameStyles.colors(spec.frameKey) else null
+    val ringPaint = paint(ringColor).apply {
+        if (stops != null) shader = android.graphics.SweepGradient(outer.centerX(), outer.centerY(), stops.toIntArray(), null)
+    }
+    if (stops != null && app.locana.ui.theme.FrameStyles.glows(spec.frameKey)) {
+        c.drawRoundRect(RectF(outer).apply { inset(-px(2f), -px(2f)) }, px(RADIUS + RING + 2f), px(RADIUS + RING + 2f), paint(withAlpha(stops.first(), 0.30f)))
+    }
+    c.drawRoundRect(outer, px(RADIUS + RING), px(RADIUS + RING), ringPaint)
+    c.drawPath(tail, ringPaint)
     c.drawRoundRect(inner, px(RADIUS), px(RADIUS), paint(face))
     if (photo != null) {
         val scaled = Bitmap.createScaledBitmap(photo, inner.width().toInt(), inner.height().toInt(), true)

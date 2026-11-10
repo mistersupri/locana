@@ -56,6 +56,8 @@ fun Avatar(
     size: Dp = 40.dp,
     presence: Presence? = null,
     framed: Boolean = false,
+    /** Which collection frame to draw; the plain gold ring when null or unknown. */
+    frameKey: String? = null,
     /** With both set and a photo on the server, the photo replaces the initials. */
     userId: String? = null,
     photoVersion: Long? = null,
@@ -79,7 +81,13 @@ fun Avatar(
         Canvas(Modifier.size(size)) {
             val w = 2.5.dp.toPx()
             val r = this.size.minDimension / 2 - w / 2
-            if (framed) drawCircle(frame, radius = r, style = Stroke(w))
+            if (framed) {
+                val stops = app.locana.ui.theme.FrameStyles.colors(frameKey)
+                if (stops != null) {
+                    if (app.locana.ui.theme.FrameStyles.glows(frameKey)) drawCircle(androidx.compose.ui.graphics.Color(stops.first()).copy(alpha = 0.28f), radius = r + w * 0.9f, style = Stroke(w * 2.2f))
+                    drawCircle(androidx.compose.ui.graphics.Brush.sweepGradient(stops.map { androidx.compose.ui.graphics.Color(it) }), radius = r, style = Stroke(w * 1.15f))
+                } else drawCircle(frame, radius = r, style = Stroke(w))
+            }
             when (presence) {
                 Presence.LIVE -> drawCircle(ring, radius = r - if (framed) w * 1.6f else 0f, style = Stroke(w))
                 Presence.STALE -> drawCircle(

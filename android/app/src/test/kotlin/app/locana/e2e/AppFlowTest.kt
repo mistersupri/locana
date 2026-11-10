@@ -225,6 +225,15 @@ class AppFlowTest {
         waitFor("Rani", substring = true)
         shot("09-map-members")
 
+        // Focus a person from the drawer, then Back must unfocus (not leave the app).
+        click("Rani", substring = true)
+        waitFor("Nothing recorded", substring = true)
+        shot("09a-map-focused")
+        back()
+        waitFor("Invite")
+        compose.activityRule.scenario.onActivity { check(!it.isFinishing) { "Back left the app instead of unfocusing" } }
+        check(compose.onAllNodesWithText("Nothing recorded", substring = true).fetchSemanticsNodes().isEmpty()) { "still focused after Back" }
+
         // Explore: quests, quest detail, landmarks
         tab("Explore")
         waitFor("Today")
@@ -261,6 +270,8 @@ class AppFlowTest {
         back()
         visit("Circle leaderboard", "17a-circle-leaderboard")
         visit("Level path", "17b-level-path")
+        visit("Monster hunt", "17c-monster-hunt")
+        visit("Weapon shop", "17d-weapon-shop")
 
         // Circle: feed and members
         tab("Circle")

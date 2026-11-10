@@ -114,6 +114,9 @@ fun MainGraph(nav: NavHostController, @Suppress("UNUSED_PARAMETER") snackbar: Sn
 
         composable(Routes.NOTIFICATIONS) { NotificationsScreen(nav) }
         composable(Routes.SAFETY) { app.locana.ui.safety.SafetyScreen(nav) }
+        composable(Routes.BATTLE) { app.locana.ui.battle.BattleScreen(nav) }
+        composable(Routes.SHOP) { app.locana.ui.battle.ShopScreen(nav) }
+        composable(Routes.TRIP_REPLAY) { app.locana.ui.timeline.TripReplayScreen(nav) }
         composable(Routes.PROFILE_EDIT) { ProfileEditScreen(nav) }
         composable(Routes.PRIVACY) { PrivacyScreen(nav) }
         composable(Routes.ACCOUNT) { AccountScreen(nav) }

@@ -101,6 +101,7 @@ internal fun MemberDetail(
     onRetry: () -> Unit,
     onHide: () -> Unit,
     onManage: () -> Unit,
+    onOpenTrip: (TimelineItem.Trip) -> Unit = {},
 ) {
     val status = statusFor(m, place, me, System.currentTimeMillis())
     LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -147,7 +148,7 @@ internal fun MemberDetail(
                     Column(Modifier.padding(horizontal = 16.dp)) {
                         when (entry) {
                             is TimelineItem.Stay -> StayCard(entry)
-                            is TimelineItem.Trip -> TripCard(entry)
+                            is TimelineItem.Trip -> TripCard(entry, onOpen = { onOpenTrip(entry) })
                         }
                     }
                 }

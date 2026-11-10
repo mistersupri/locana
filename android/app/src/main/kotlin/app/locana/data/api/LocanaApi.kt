@@ -108,6 +108,11 @@ interface LocanaApi {
     @POST("v1/sos") suspend fun sos(@Body body: SosRequest): SosResultDto
     @GET("v1/quick-messages") suspend fun quickMessages(): List<QuickMessageDefDto>
     @POST("v1/circles/{circleId}/members/{userId}/quick-message") suspend fun quickMessage(@Path("circleId") circleId: String, @Path("userId") userId: String, @Body body: QuickMessageRequest): QuickMessageResultDto
+    @GET("v1/battle/active") suspend fun battleActive(): BattleStateDto
+    @POST("v1/battle/{id}/attack") suspend fun attack(@Path("id") id: String, @Body body: AttackRequest): AttackResultDto
+    @POST("v1/battle/{id}/flee") suspend fun flee(@Path("id") id: String): FleeDto
+    @GET("v1/shop") suspend fun shop(): ShopDto
+    @POST("v1/shop/buy") suspend fun buy(@Body body: BuyRequest): ShopDto
     @POST("v1/landmarks/{id}/claim") suspend fun claimLandmark(@Path("id") id: String, @Body body: ClaimLandmarkBody): ClaimLandmarkResultDto
     @GET("v1/landmarks") suspend fun landmarks(@Query("lat") lat: Double, @Query("lon") lon: Double, @Query("radiusM") radiusM: Int?, @Query("q") query: String?): List<LandmarkDto>
     @GET("v1/territories") suspend fun territories(@Query("north") north: Double, @Query("south") south: Double, @Query("east") east: Double, @Query("west") west: Double): List<TerritorySummaryDto>

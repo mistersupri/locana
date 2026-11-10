@@ -57,6 +57,7 @@ data class MemberPin(
     val avatarKey: String?,
     val photoVersion: Long? = null,
     val framed: Boolean,
+    val frameKey: String? = null,
     val presence: Presence,
     val lat: Double?,
     val lon: Double?,
@@ -127,6 +128,9 @@ class MapViewModel @Inject constructor(
     private val circles: CircleRepository,
     private val location: LocationRepository,
     private val game: GameRepository,
+    private val pendingFocus: app.locana.ui.nav.PendingFocus,
+    private val battle: app.locana.data.repo.BattleRepository,
+    private val replayStore: app.locana.ui.timeline.TripReplayStore,
     private val safety: app.locana.data.repo.SafetyRepository,
     private val sosCoordinator: app.locana.data.safety.SosCoordinator,
     private val me: MeRepository,
@@ -250,6 +254,7 @@ class MapViewModel @Inject constructor(
                 avatarKey = if (isMe && meNow != null) meNow.profile.avatarKey else m.avatarKey,
                 photoVersion = if (isMe && meNow != null) meNow.profile.avatarPhotoVersion else m.avatarPhotoVersion,
                 framed = (if (isMe && meNow != null) meNow.profile.avatarFrameKey else m.avatarFrameKey) != null,
+                frameKey = if (isMe && meNow != null) meNow.profile.avatarFrameKey else m.avatarFrameKey,
                 presence = if (own != null) Presence.LIVE.let { Freshness.presence(it, recordedAt, now) } else Freshness.presence(serverPresence, r?.recordedAtMs, now),
                 lat = own?.latitude ?: r?.latitude, lon = own?.longitude ?: r?.longitude, accuracyM = own?.accuracy?.toDouble() ?: r?.accuracyM,
                 recordedAtMs = recordedAt,
@@ -365,6 +370,8 @@ class MapViewModel @Inject constructor(
 
     fun focus(userId: String) {
         _poi.value = null
+        // Messages unlocked since the last look appear among the chips.
+        viewModelScope.launch { safety.quickMessages().onSuccess { if (it.isNotEmpty()) _quickMessages.value = it } }
         _focus.value = FocusUi(userId, java.time.LocalDate.now(), app.locana.ui.components.UiState.Loading)
         loadTimeline()
         // New positions keep arriving, so today's day is reloaded quietly while the panel is open.
@@ -408,21 +415,58 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Looks up where each unnamed stay happened and fills the names in as they arrive. */
+    /**
+     * Names the places on the day: each unnamed stay by the nearest place Google knows there, then each trip by its two
+     * ends ("Home → Office"). Names appear one by one as they arrive; a trip whose end is on a street without a place
+     * simply keeps a shorter title.
+     */
     private suspend fun nameStays(userId: String, day: java.time.LocalDate) {
-        val data = (_focus.value?.items as? app.locana.ui.components.UiState.Data)?.value ?: return
-        data.forEachIndexed { idx, item ->
-            if (item !is app.locana.ui.timeline.TimelineItem.Stay || !item.unnamed) return@forEachIndexed
-            val lat = item.latitude ?: return@forEachIndexed
-            val lon = item.longitude ?: return@forEachIndexed
-            val name = places.nameAt(lat, lon) ?: return@forEachIndexed
+        val names = HashMap<Int, String>()
+        val data0 = (_focus.value?.items as? app.locana.ui.components.UiState.Data)?.value ?: return
+        suspend fun apply() {
             _focus.update { cur ->
                 val list = (cur?.items as? app.locana.ui.components.UiState.Data)?.value
-                if (cur == null || cur.userId != userId || cur.day != day || list == null || idx >= list.size) cur
-                else cur.copy(items = app.locana.ui.components.UiState.Data(list.toMutableList().also { l -> (l[idx] as? app.locana.ui.timeline.TimelineItem.Stay)?.let { l[idx] = it.copy(title = name, unnamed = false) } }))
+                if (cur == null || cur.userId != userId || cur.day != day || list == null || list.size != data0.size) cur
+                else cur.copy(items = app.locana.ui.components.UiState.Data(retitle(list, names)))
             }
         }
+        data0.forEachIndexed { idx, item ->
+            if (item !is app.locana.ui.timeline.TimelineItem.Stay || !item.unnamed) return@forEachIndexed
+            val name = places.nameAt(item.latitude ?: return@forEachIndexed, item.longitude ?: return@forEachIndexed) ?: return@forEachIndexed
+            names[idx] = name
+            apply()
+        }
+        // Trips that still miss an end (the day starts or ends on the road): ask about the end of the route itself.
+        data0.forEachIndexed { idx, item ->
+            if (item !is app.locana.ui.timeline.TimelineItem.Trip || item.path.isEmpty()) return@forEachIndexed
+            val before = data0.getOrNull(idx - 1) as? app.locana.ui.timeline.TimelineItem.Stay
+            val after = data0.getOrNull(idx + 1) as? app.locana.ui.timeline.TimelineItem.Stay
+            if (before == null && item.fromName == null) places.nameAt(item.path.first().first, item.path.first().second)?.let { names[-(idx * 2) - 1] = it }
+            if (after == null && !item.ongoing && item.toName == null) places.nameAt(item.path.last().first, item.path.last().second)?.let { names[-(idx * 2) - 2] = it }
+            apply()
+        }
     }
+
+    /** Recomputes names and titles from what has been learned: stays by index, trip ends by negative keys. */
+    private fun retitle(list: List<app.locana.ui.timeline.TimelineItem>, names: Map<Int, String>): List<app.locana.ui.timeline.TimelineItem> =
+        list.mapIndexed { idx, item ->
+            when (item) {
+                is app.locana.ui.timeline.TimelineItem.Stay -> names[idx]?.let { item.copy(title = it, unnamed = false) } ?: item
+                is app.locana.ui.timeline.TimelineItem.Trip -> {
+                    val from = (list.getOrNull(idx - 1) as? app.locana.ui.timeline.TimelineItem.Stay)?.let { st -> if (st.unnamed) names[idx - 1] else st.title }
+                        ?: item.fromName ?: names[-(idx * 2) - 1]
+                    val to = (list.getOrNull(idx + 1) as? app.locana.ui.timeline.TimelineItem.Stay)?.let { st -> if (st.unnamed) names[idx + 1] else st.title }
+                        ?: item.toName ?: names[-(idx * 2) - 2]
+                    item.copy(fromName = from, toName = to, title = app.locana.ui.timeline.tripTitle(from, to, item.mode, item.ongoing))
+                }
+            }
+        }
+
+    val pending: StateFlow<String?> = pendingFocus.userId
+    /** A monster waiting on the road for the player, if any. */
+    val monster: StateFlow<app.locana.data.api.EncounterDto?> = battle.waiting
+    fun consumePending() = pendingFocus.consume()
+    fun openReplay(t: app.locana.ui.timeline.TimelineItem.Trip) { replayStore.trip = t }
 
     val sosState: StateFlow<app.locana.data.safety.SosState> = sosCoordinator.state
     fun sendSos() = sosCoordinator.send("MANUAL")

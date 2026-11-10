@@ -184,7 +184,13 @@ data class TimelineSegmentDto(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val place: TimelinePlaceDto? = null,
+    /** Epoch milliseconds of each [path] point, so a replay can follow the route in time. */
+    val pathAt: List<Long> = emptyList(),
+    val events: List<DriveEventDto> = emptyList(),
+    val eventCounts: DriveEventCountsDto? = null,
 )
+@Serializable data class DriveEventDto(val kind: String, val at: Long, val latitude: Double, val longitude: Double)
+@Serializable data class DriveEventCountsDto(val hardBrake: Int = 0, val rapidAccel: Int = 0, val phoneUse: Int = 0)
 @Serializable data class TimelineDto(val day: String, val points: Int = 0, val segments: List<TimelineSegmentDto>)
 
 @Serializable
@@ -201,6 +207,8 @@ data class SampleDto(
     val activity: String? = null,
     val isMock: Boolean? = null,
     val batteryPct: Int? = null,
+    /** HARD_BRAKE, RAPID_ACCEL or PHONE_USE when the phone noticed one at this fix. */
+    val driveEvent: String? = null,
 )
 
 @Serializable data class UploadRequest(val samples: List<SampleDto>)
@@ -330,3 +338,25 @@ data class TerritoryDetailDto(
 @Serializable data class QuickMessageDefDto(val code: String, val text: String, val emoji: String)
 @Serializable data class QuickMessageRequest(val code: String)
 @Serializable data class QuickMessageResultDto(val sent: Boolean, val delivered: Boolean, val code: String, val text: String, val emoji: String)
+
+// ── monsters, weapons, shop ──
+@Serializable data class MonsterDto(val code: String, val name: String, val emoji: String)
+@Serializable
+data class EncounterDto(
+    val id: String, val status: String, val monster: MonsterDto, val hp: Int, val maxHp: Int,
+    val playerHp: Int, val maxPlayerHp: Int, val rewardCoins: Int, val rewardXp: Int, val expiresAt: String,
+)
+@Serializable data class OwnedWeaponDto(val code: String, val name: String, val emoji: String, val power: Int)
+@Serializable data class BattleStateDto(val encounter: EncounterDto? = null, val coins: Int = 0, val weapons: List<OwnedWeaponDto> = emptyList())
+@Serializable data class AttackRequest(val weaponCode: String? = null)
+@Serializable data class HitDto(val damage: Int, val crit: Boolean = false)
+@Serializable data class BattleRewardsDto(val coins: Int, val xp: Int, val levelUps: List<LevelUpDto> = emptyList())
+@Serializable
+data class AttackResultDto(
+    val outcome: String, val hit: HitDto, val counter: HitDto? = null, val encounter: EncounterDto,
+    val coins: Int, val rewards: BattleRewardsDto? = null,
+)
+@Serializable data class FleeDto(val fled: Boolean = true)
+@Serializable data class ShopWeaponDto(val code: String, val name: String, val emoji: String, val power: Int, val costCoins: Int, val minLevel: Int, val owned: Boolean, val affordable: Boolean, val unlocked: Boolean)
+@Serializable data class ShopDto(val coins: Int, val level: Int, val weapons: List<ShopWeaponDto>)
+@Serializable data class BuyRequest(val code: String)

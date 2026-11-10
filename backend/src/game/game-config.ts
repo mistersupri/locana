@@ -10,7 +10,10 @@ import { PrismaClient, QuestCondition, QuestType, Rarity, CollectibleKind } from
 import { defaultCurve } from './levels';
 import { REGIONS } from './regional-landmarks';
 
-const LEVEL_REWARDS: Record<number, string> = { 3: 'marker_compass', 5: 'frame_trailhead', 8: 'title_wayfinder', 10: 'frame_summit', 15: 'marker_lantern', 20: 'title_cartographer' };
+const LEVEL_REWARDS: Record<number, string> = {
+  2: 'qm_noted', 3: 'marker_compass', 4: 'qm_snack', 5: 'frame_trailhead', 6: 'frame_neon', 7: 'qm_beep', 8: 'title_wayfinder', 9: 'qm_slow',
+  10: 'frame_summit', 11: 'frame_sakura', 12: 'qm_goat', 13: 'frame_ice', 14: 'qm_tea', 15: 'marker_lantern', 17: 'frame_flame', 20: 'title_cartographer',
+};
 
 const COLLECTIBLES: { code: string; name: string; description: string; kind: CollectibleKind; rarity: Rarity; setCode?: string; iconKey: string }[] = [
   { code: 'marker_compass', name: 'Compass marker', description: 'A map marker with a compass needle. Reach level 3.', kind: 'MAP_MARKER', rarity: 'COMMON', iconKey: 'marker_compass' },
@@ -21,6 +24,22 @@ const COLLECTIBLES: { code: string; name: string; description: string; kind: Col
   { code: 'title_cartographer', name: 'Cartographer', description: 'Title shown under your name. Reach level 20.', kind: 'TITLE', rarity: 'LEGENDARY', iconKey: 'title' },
   { code: 'title_neighbor', name: 'Good Neighbor', description: 'Earned with the Neighborhood Explorer achievement.', kind: 'TITLE', rarity: 'RARE', iconKey: 'title' },
   { code: 'badge_team', name: 'Team badge', description: 'Earned by finishing a circle quest together.', kind: 'BADGE', rarity: 'RARE', iconKey: 'badge_team' },
+  // Pin frames: how your pin looks on your circle's map.
+  { code: 'frame_neon', name: 'Neon frame', description: 'A glowing cyan and pink ring around your pin. Reach level 6.', kind: 'AVATAR_FRAME', rarity: 'RARE', iconKey: 'frame_neon' },
+  { code: 'frame_sakura', name: 'Sakura frame', description: 'Soft pink petals around your pin. Reach level 11.', kind: 'AVATAR_FRAME', rarity: 'RARE', iconKey: 'frame_sakura' },
+  { code: 'frame_ice', name: 'Ice frame', description: 'A frosty blue ring that sparkles. Reach level 13.', kind: 'AVATAR_FRAME', rarity: 'EPIC', iconKey: 'frame_ice' },
+  { code: 'frame_flame', name: 'Flame frame', description: 'A ring of orange and red fire. Reach level 17.', kind: 'AVATAR_FRAME', rarity: 'EPIC', iconKey: 'frame_flame' },
+  { code: 'frame_aurora', name: 'Aurora frame', description: 'Green, teal and violet light swirling around your pin. Visit 15 landmarks.', kind: 'AVATAR_FRAME', rarity: 'LEGENDARY', iconKey: 'frame_aurora' },
+  { code: 'frame_gold', name: 'Gold frame', description: 'A shining gold ring for map completionists. Reveal 500 tiles.', kind: 'AVATAR_FRAME', rarity: 'LEGENDARY', iconKey: 'frame_gold' },
+  // Funny quick messages: they join the chips you can send to a friend.
+  { code: 'qm_noted', name: 'Message: Noted, captain! 🎖️', description: 'A quick message to send friends. Reach level 2.', kind: 'QUICK_MESSAGE', rarity: 'COMMON', iconKey: 'qm' },
+  { code: 'qm_snack', name: 'Message: Snack time? 🍜', description: 'A quick message to send friends. Reach level 4.', kind: 'QUICK_MESSAGE', rarity: 'COMMON', iconKey: 'qm' },
+  { code: 'qm_beep', name: 'Message: Beep beep! 🚙', description: 'A quick message to send friends. Reach level 7.', kind: 'QUICK_MESSAGE', rarity: 'COMMON', iconKey: 'qm' },
+  { code: 'qm_slow', name: 'Message: Too slow! 🐌', description: 'A quick message to send friends. Reach level 9.', kind: 'QUICK_MESSAGE', rarity: 'RARE', iconKey: 'qm' },
+  { code: 'qm_goat', name: "Message: You're the GOAT 🐐", description: 'A quick message to send friends. Reach level 12.', kind: 'QUICK_MESSAGE', rarity: 'RARE', iconKey: 'qm' },
+  { code: 'qm_tea', name: 'Message: Spill the tea ☕', description: 'A quick message to send friends. Reach level 14.', kind: 'QUICK_MESSAGE', rarity: 'RARE', iconKey: 'qm' },
+  { code: 'qm_party', name: "Message: Let's party! 🎉", description: 'A quick message to send friends. Unlock your first landmark.', kind: 'QUICK_MESSAGE', rarity: 'RARE', iconKey: 'qm' },
+  { code: 'qm_ghost', name: 'Message: Boo! 👻', description: 'A quick message to send friends. Defeat 10 monsters.', kind: 'QUICK_MESSAGE', rarity: 'EPIC', iconKey: 'qm' },
   { code: 'badge_heritage', name: 'Heritage Walk badge', description: 'Collected every stamp of the Central Jakarta set.', kind: 'BADGE', rarity: 'EPIC', setCode: 'jakarta_center', iconKey: 'badge_heritage' },
 ];
 
@@ -64,13 +83,15 @@ const ACHIEVEMENTS = [
   { code: 'neighborhood_explorer', name: 'Neighborhood Explorer', description: 'Reveal 25 map tiles.', rarity: 'RARE', iconKey: 'ach_neighborhood', criteria: { metric: 'tilesDiscovered', gte: 25 }, rewardXp: 100, rewardCollectibleCode: 'title_neighbor' },
   { code: 'weekend_adventurer', name: 'Weekend Adventurer', description: 'Reveal 10 tiles on weekends.', rarity: 'RARE', iconKey: 'ach_weekend', criteria: { metric: 'weekendTiles', gte: 10 }, rewardXp: 80 },
   { code: 'landmark_collector', name: 'Landmark Collector', description: 'Visit 5 different landmarks.', rarity: 'EPIC', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 5 }, rewardXp: 150 },
-  { code: 'landmark_explorer', name: 'Landmark Explorer', description: 'Visit 15 different landmarks.', rarity: 'EPIC', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 15 }, rewardXp: 250 },
+  { code: 'landmark_explorer', name: 'Landmark Explorer', description: 'Visit 15 different landmarks.', rarity: 'EPIC', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 15 }, rewardXp: 250, rewardCollectibleCode: 'frame_aurora' },
   { code: 'landmark_legend', name: 'Landmark Legend', description: 'Visit 40 different landmarks.', rarity: 'LEGENDARY', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 40 }, rewardXp: 600 },
-  { code: 'first_landmark', name: 'First Stamp', description: 'Visit your first landmark.', rarity: 'COMMON', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 1 }, rewardXp: 30 },
+  { code: 'first_landmark', name: 'First Stamp', description: 'Visit your first landmark.', rarity: 'COMMON', iconKey: 'ach_landmarks', criteria: { metric: 'landmarksVisited', gte: 1 }, rewardXp: 30, rewardCollectibleCode: 'qm_party' },
+  { code: 'first_monster', name: 'First Blood', description: 'Defeat your first monster.', rarity: 'COMMON', iconKey: 'ach_monster', criteria: { metric: 'monstersDefeated', gte: 1 }, rewardXp: 40 },
+  { code: 'monster_slayer', name: 'Monster Slayer', description: 'Defeat 10 monsters.', rarity: 'EPIC', iconKey: 'ach_monster', criteria: { metric: 'monstersDefeated', gte: 10 }, rewardXp: 200, rewardCollectibleCode: 'qm_ghost' },
   { code: 'quest_streak', name: 'Quest Streak', description: 'Stay active 7 days in a row.', rarity: 'RARE', iconKey: 'ach_streak', criteria: { metric: 'streak', gte: 7 }, rewardXp: 120 },
   { code: 'team_explorer', name: 'Team Explorer', description: 'Finish a circle quest with your team.', rarity: 'RARE', iconKey: 'ach_team', criteria: { metric: 'circleQuests', gte: 1 }, rewardXp: 100, rewardCollectibleCode: 'badge_team' },
   { code: 'circle_champion', name: 'Circle Champion', description: 'Claim a territory for your circle.', rarity: 'EPIC', iconKey: 'ach_champion', criteria: { metric: 'territoriesClaimed', gte: 1 }, rewardXp: 150 },
-  { code: 'map_completionist', name: 'Map Completionist', description: 'Reveal 500 map tiles.', rarity: 'LEGENDARY', iconKey: 'ach_completionist', criteria: { metric: 'tilesDiscovered', gte: 500 }, rewardXp: 500 },
+  { code: 'map_completionist', name: 'Map Completionist', description: 'Reveal 500 map tiles.', rarity: 'LEGENDARY', iconKey: 'ach_completionist', criteria: { metric: 'tilesDiscovered', gte: 500 }, rewardXp: 500, rewardCollectibleCode: 'frame_gold' },
   { code: 'quest_runner', name: 'Quest Runner', description: 'Claim 10 quests.', rarity: 'COMMON', iconKey: 'ach_quests', criteria: { metric: 'questsCompleted', gte: 10 }, rewardXp: 60 },
   { code: 'level_10', name: 'Seasoned', description: 'Reach level 10.', rarity: 'EPIC', iconKey: 'ach_level', criteria: { metric: 'level', gte: 10 }, rewardXp: 0 },
 ] as const;

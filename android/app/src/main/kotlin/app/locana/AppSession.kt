@@ -42,6 +42,7 @@ class AppSession @Inject constructor(
     private val settings: app.locana.data.prefs.SettingsStore,
     private val signals: app.locana.data.system.DeviceSignals,
     private val incoming: app.locana.data.safety.IncomingMessages,
+    private val battle: app.locana.data.repo.BattleRepository,
 ) : DefaultLifecycleObserver {
     private var started = false
 
@@ -55,6 +56,7 @@ class AppSession @Inject constructor(
                     NotificationSyncWorker.schedule(context)
                     me.loadCached()
                     me.refresh()
+                    battle.refresh()
                     me.registerDevice("${Build.MANUFACTURER} ${Build.MODEL}", BuildConfig.VERSION_NAME)
                 } else {
                     realtime.stop()
@@ -98,6 +100,7 @@ class AppSession @Inject constructor(
         val body = str(d, "body").orEmpty()
         val extra = d["data"] as? kotlinx.serialization.json.JsonObject
         val foreground = signals.appInForeground()
+        if (kind == "MONSTER") scope.launch { battle.refresh() }
         if (kind == "QUICK_MESSAGE" && foreground && extra != null) {
             incoming.publish(
                 app.locana.data.safety.IncomingQuickMessage(
@@ -107,7 +110,7 @@ class AppSession @Inject constructor(
             return
         }
         if (foreground && kind != "SOS") return // the in-app list and badge already show it
-        notifier.post(id.hashCode(), kind, title, body, if (kind == "SOS") "map" else "notifications")
+        notifier.post(id.hashCode(), kind, title, body, when (kind) { "SOS" -> "map"; "MONSTER" -> "play/battle"; else -> "notifications" })
         str(d, "createdAt")?.let { at -> scope.launch { settings.setLastNotificationAt(at) } }
     }
 

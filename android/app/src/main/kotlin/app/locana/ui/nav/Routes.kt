@@ -52,6 +52,9 @@ object Routes {
     const val PRIVACY = "settings/privacy"
     const val ACCOUNT = "settings/account"
     const val SAFETY = "settings/safety"
+    const val TRIP_REPLAY = "trip/replay"
+    const val BATTLE = "play/battle"
+    const val SHOP = "play/shop"
     const val BLOCKED = "settings/blocked"
 
     val tabs = listOf(MAP, EXPLORE, PLAY, CIRCLE)

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminController } from './admin/admin.controller';
+import { BattleModule } from './battle/battle.module';
 import { AuthCoreModule } from './auth/auth-core.module';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthModule } from './auth/auth.module';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     GameModule,
     RealtimeModule,
     SafetyModule,
+    BattleModule,
   ],
   controllers: [HealthController, AdminController],
   providers: [

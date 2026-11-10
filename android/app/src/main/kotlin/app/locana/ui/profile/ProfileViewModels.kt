@@ -111,7 +111,16 @@ class PrivacyViewModel @Inject constructor(private val me: MeRepository, private
 }
 
 @HiltViewModel
-class NotificationsViewModel @Inject constructor(private val repo: NotificationRepository) : ViewModel() {
+class NotificationsViewModel @Inject constructor(private val repo: NotificationRepository, private val pending: app.locana.ui.nav.PendingFocus) : ViewModel() {
+    /** Opening a notification marks it read and, for people-related ones, asks the map to focus that person. */
+    fun open(n: NotificationDto) {
+        viewModelScope.launch {
+            if (!n.read) repo.markRead(n.id).onSuccess { (_state.value as? UiState.Data)?.let { d -> _state.value = UiState.Data(d.value.map { if (it.id == n.id) it.copy(read = true) else it }) } }
+        }
+        fun str(k: String) = (n.data[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        if (n.kind in setOf("SOS", "TRIP", "ARRIVAL", "QUICK_MESSAGE")) pending.request(str("userId") ?: str("fromUserId"))
+    }
+
     private val _state = MutableStateFlow<UiState<List<NotificationDto>>>(UiState.Loading)
     val state: StateFlow<UiState<List<NotificationDto>>> = _state.asStateFlow()
     private var cursor: String? = null

@@ -16,6 +16,6 @@ import { XpService } from './xp.service';
   imports: [CirclesModule],
   controllers: [GameController],
   providers: [GameConfigBootstrap, LevelService, XpService, AchievementsService, ChallengesService, EffectsPublisher, QuestsService, TerritoryService, ExplorationService, LeaderboardService],
-  exports: [LevelService, ExplorationService, QuestsService],
+  exports: [LevelService, ExplorationService, QuestsService, XpService, EffectsPublisher, AchievementsService],
 })
 export class GameModule {}

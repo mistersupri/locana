@@ -160,6 +160,7 @@ export class ExplorationService {
       if (lm.collectibleCode) await this.xp.grantCollectible(tx, userId, lm.collectibleCode, `landmark:${lm.code}`, fx);
       await tx.dailyActivityStat.update({ where: { userId_day: { userId, day: dayDate } }, data: { landmarks: { increment: 1 } } });
       await this.challenges.bump(tx, userId, 'LANDMARKS', 1, fx);
+      await tx.userProfile.update({ where: { userId }, data: { coins: { increment: 15 } } });
     }
     events.push({ kind: 'LANDMARK', landmarkId: lm.id, setCode: lm.setCode });
     if (teamCircleId) await this.territories.recordVisit(tx, userId, teamCircleId, lm.id, fx);

@@ -220,7 +220,7 @@ fun CircleScreen(nav: NavController, vm: CircleViewModel = hiltViewModel()) {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         h.detail.members.forEach { m ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
-                                Avatar(m.displayName, m.avatarKey, size = 52.dp, framed = m.avatarFrameKey != null, userId = m.userId, photoVersion = m.avatarPhotoVersion)
+                                Avatar(m.displayName, m.avatarKey, size = 52.dp, framed = m.avatarFrameKey != null, frameKey = m.avatarFrameKey, userId = m.userId, photoVersion = m.avatarPhotoVersion)
                                 Text(if (m.userId == vm.myId) "You" else m.displayName, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                             }
                         }

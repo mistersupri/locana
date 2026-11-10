@@ -20,7 +20,8 @@ export type NotificationKind =
   | 'CHALLENGE'
   | 'SOS'
   | 'QUICK_MESSAGE'
-  | 'TRIP';
+  | 'TRIP'
+  | 'MONSTER';
 
 const PREF: Partial<Record<NotificationKind, 'notifyArrivals' | 'notifyQuests' | 'notifyAchievements' | 'notifyCircle' | 'notifyTrips'>> = {
   TRIP: 'notifyTrips',

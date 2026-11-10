@@ -49,6 +49,7 @@ class ExploreViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { location.gameResults.collect { load(silent = true) } }
+        viewModelScope.launch { game.changed.collect { load(silent = true) } }
         load()
     }
 

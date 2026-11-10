@@ -60,6 +60,14 @@ internal fun confettiFor(code: String, fallback: String): List<String> = when (c
     "BE_CAREFUL" -> listOf("🙏", "🛡️", "⚠️")
     "THANK_YOU" -> listOf("🙌", "✨", "🙏")
     "HAHA" -> listOf("😂", "🤣", "😆")
+    "NOTED_CAPTAIN" -> listOf("🎖️", "⭐", "🎖️")
+    "SNACK_TIME" -> listOf("🍜", "🍕", "🍔", "🍟")
+    "BEEP_BEEP" -> listOf("🚙", "💨", "🚦")
+    "TOO_SLOW" -> listOf("🐌", "💤", "⏳")
+    "GOAT" -> listOf("🐐", "🏆", "👑")
+    "SPILL_TEA" -> listOf("☕", "🍵", "👀")
+    "LETS_PARTY" -> listOf("🎉", "🎊", "🥳")
+    "BOO" -> listOf("👻", "🎃", "💀")
     else -> listOf(fallback)
 }
 

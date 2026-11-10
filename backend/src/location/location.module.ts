@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BattleModule } from '../battle/battle.module';
 import { CirclesModule } from '../circles/circles.module';
 import { GameModule } from '../game/game.module';
 import { PlacesModule } from '../places/places.module';
@@ -8,7 +9,7 @@ import { LocationService } from './location.service';
 import { SharingService } from './sharing.service';
 
 @Module({
-  imports: [CirclesModule, PlacesModule, GameModule, SafetyModule],
+  imports: [CirclesModule, PlacesModule, GameModule, SafetyModule, BattleModule],
   controllers: [LocationController],
   providers: [LocationService, SharingService],
   exports: [SharingService, LocationService],

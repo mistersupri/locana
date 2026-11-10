@@ -6,6 +6,7 @@ import { ApiError } from '../common/errors';
 import { haversineM } from '../common/geo';
 import { APP_ENV, AppEnv } from '../config/env';
 import { ExplorationService, TrustedSample } from '../game/exploration.service';
+import { BattleService } from '../battle/battle.service';
 import { SafetyService } from '../safety/safety.service';
 import { SharingService } from './sharing.service';
 import { PlacesService } from '../places/places.service';
@@ -31,6 +32,7 @@ export class LocationService {
     private readonly places: PlacesService,
     private readonly sharingSessions: SharingService,
     private readonly safety: SafetyService,
+    private readonly battle: BattleService,
     private readonly exploration: ExplorationService,
     @Inject(APP_ENV) private readonly env: AppEnv,
   ) {}
@@ -122,6 +124,7 @@ export class LocationService {
 
       // The person's own trail is theirs: it is kept whenever history is on, even while nobody is being shown their position.
       if (privacy.historyEnabled) await this.appendHistory(userId, accepted);
+      await this.recordDriveEvents(userId, accepted);
       if (sharing) {
         await this.places.processSamples(
           userId,
@@ -135,6 +138,8 @@ export class LocationService {
     }
 
     const fx = trusted.length ? await this.exploration.process(userId, trusted) : null;
+    // With some luck a monster steps onto the road for someone who is playing and has travelled a bit.
+    if (newest && trusted.length) await this.battle.maybeSpawn(userId, newest).catch((e) => this.log.warn(`monster roll failed: ${(e as Error).message}`));
     return {
       accepted: accepted.length,
       rejected,
@@ -149,6 +154,22 @@ export class LocationService {
         questUpdates: [...fx.questProgress.values()].filter((q) => q.userId === userId),
       },
     };
+  }
+
+  /** Risky-driving moments the phone flagged. One per kind per 10 seconds, and never from a mock provider. */
+  private async recordDriveEvents(userId: string, accepted: (LocationSampleDto & { at: Date })[]) {
+    const flagged = accepted.filter((s) => s.driveEvent && !s.isMock);
+    if (!flagged.length) return;
+    const rows: { userId: string; kind: string; latitude: number; longitude: number; speedMps: number | null; at: Date }[] = [];
+    const lastByKind = new Map<string, number>();
+    for (const s of flagged) {
+      const kind = s.driveEvent as string;
+      const last = lastByKind.get(kind);
+      if (last !== undefined && s.at.getTime() - last < 10_000) continue;
+      lastByKind.set(kind, s.at.getTime());
+      rows.push({ userId, kind, latitude: s.latitude, longitude: s.longitude, speedMps: s.speedMps ?? null, at: s.at });
+    }
+    if (rows.length) await this.prisma.driveEvent.createMany({ data: rows });
   }
 
   private async appendHistory(userId: string, accepted: (LocationSampleDto & { at: Date })[]) {
@@ -264,7 +285,20 @@ export class LocationService {
     const points: TimelinePoint[] = [...rows];
     if (latest && latest.recordedAt >= start && latest.recordedAt < end && (rows.length === 0 || latest.recordedAt > rows[rows.length - 1].recordedAt)) points.push(latest);
     const places = await this.prisma.savedPlace.findMany({ where: { circleId } });
+    const driveEvents = await this.prisma.driveEvent.findMany({ where: { userId: ownerId, at: { gte: start, lt: end } }, orderBy: { at: 'asc' } });
     const segments = buildTimeline(points).map((seg) => {
+      if (seg.type === 'TRIP') {
+        const inTrip = driveEvents.filter((e) => e.at >= seg.startedAt && e.at <= seg.endedAt);
+        return {
+          ...seg,
+          events: inTrip.map((e) => ({ kind: e.kind, at: e.at.getTime(), latitude: e.latitude, longitude: e.longitude })),
+          eventCounts: {
+            hardBrake: inTrip.filter((e) => e.kind === 'HARD_BRAKE').length,
+            rapidAccel: inTrip.filter((e) => e.kind === 'RAPID_ACCEL').length,
+            phoneUse: inTrip.filter((e) => e.kind === 'PHONE_USE').length,
+          },
+        };
+      }
       if (seg.type !== 'STAY') return seg;
       const hit = places.find((p) => haversineM(p.latitude, p.longitude, seg.latitude, seg.longitude) <= Math.max(p.radiusM, 100));
       return { ...seg, place: hit ? { id: hit.id, name: hit.name, type: hit.type } : null };

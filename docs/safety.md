@@ -23,3 +23,13 @@
 ## Notifications
 - Long trips (`TRIP`): when a trip reaches 15 km, or 40 minutes and 5 km, everyone who can see the person is told once per trip (distance and mode, no coordinates). Per-person switch: Notifications → Long trips (`notifyTrips`).
 - Place arrivals (`ARRIVAL`), quick messages and SOS arrive within seconds while the tracking service keeps the live connection open, and otherwise at the next 15-minute background sync. There is no Firebase push yet: a phone that has fully stopped Locana will only learn about them at the next sync or when the app opens.
+
+## Driving behaviour (trip replay)
+- While the phone seems to be in a vehicle, positions are asked for every 3 s (only some are uploaded) so braking can be seen. `DrivingBehavior` (domain module, unit tested) flags: **hard braking** (speed falling faster than 3.5 m/s², from at least 6 m/s), **rapid acceleration** (rising faster than 3 m/s²), and **phone use** (screen on and unlocked for 12 s while moving at 5 m/s or more, at most once a minute). A passenger using the phone looks the same, so the label is "phone use", not "distracted driver".
+- Flagged moments are uploaded with the fix (`driveEvent`), kept in `DriveEvent`, and counted on each trip in the timeline (`eventCounts`, `events`). Tapping a trip opens a full-screen replay: the route, a bar to scrub or play through the trip's times, and the events on the route.
+
+## Monsters, weapons, shop
+- With exploration on, after travelling at least 250 m and at least 8 minutes since the last one, a monster appears with 35% chance (one at a time, 15 minutes to answer). Monsters scale with level (`battle/catalog.ts`).
+- Fights are turns: you choose a weapon, the server rolls the damage (15% spread, 12% critical) and the monster's counter-attack. Winning pays coins and XP (XP is never spent, so levels never go down; weapons need a level instead). Losing costs nothing.
+- Coins also come from the first visit of each landmark (15). Weapons: `GET /v1/shop`, `POST /v1/shop/buy`. Basic attack (power 8) is free.
+- To try a fight without walking: `POST /v1/battle/dev-spawn {latitude, longitude, monster?}`. It is refused when `NODE_ENV=production`.

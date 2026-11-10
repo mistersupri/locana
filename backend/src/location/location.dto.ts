@@ -54,6 +54,11 @@ export class LocationSampleDto {
   @IsIn(['still', 'walking', 'running', 'cycling', 'vehicle', 'unknown'])
   activity?: string;
 
+  @ApiPropertyOptional({ enum: ['HARD_BRAKE', 'RAPID_ACCEL', 'PHONE_USE'], description: 'A driving event the phone noticed at this fix' })
+  @IsOptional()
+  @IsIn(['HARD_BRAKE', 'RAPID_ACCEL', 'PHONE_USE'])
+  driveEvent?: 'HARD_BRAKE' | 'RAPID_ACCEL' | 'PHONE_USE';
+
   @ApiPropertyOptional({ description: 'Location.isMock() on API 31+, isFromMockProvider() before' })
   @IsOptional()
   @IsBoolean()

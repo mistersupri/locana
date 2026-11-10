@@ -34,6 +34,11 @@ import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.HealthAndSafety
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.GridView
@@ -167,15 +172,15 @@ fun ProfileScreen(nav: NavController, vm: ProfileViewModel = hiltViewModel()) {
             else Box(
                 Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(Color(0xFF6B3BF5), Color(0xFF8D5BFF)))).padding(20.dp),
             ) {
-                Illustration("mascot", Modifier.align(Alignment.TopEnd), size = 108.dp)
+                Illustration("mascot", Modifier.align(Alignment.TopEnd), size = 84.dp)
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(84.dp).border(4.dp, Color.White, CircleShape).clip(CircleShape), contentAlignment = Alignment.Center) {
-                            Avatar(m.profile.displayName, m.profile.avatarKey, size = 84.dp, framed = m.profile.avatarFrameKey != null, userId = m.id, photoVersion = m.profile.avatarPhotoVersion)
+                            Avatar(m.profile.displayName, m.profile.avatarKey, size = 84.dp, framed = m.profile.avatarFrameKey != null, frameKey = m.profile.avatarFrameKey, userId = m.id, photoVersion = m.profile.avatarPhotoVersion)
                         }
                         Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f).padding(end = 70.dp)) {
-                            Text(m.profile.displayName, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 26.sp), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Column(Modifier.weight(1f).padding(end = 52.dp)) {
+                            Text(m.profile.displayName, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 27.sp), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text("@${m.username}", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
                         }
                     }
@@ -379,10 +384,35 @@ fun NotificationsScreen(nav: NavController, vm: NotificationsViewModel = hiltVie
                         ListRowCard(
                             title = n.title,
                             subtitle = listOf(n.body, Freshness.ageLabel(Instant.parse(n.createdAt).toEpochMilli(), System.currentTimeMillis())).filter { it.isNotBlank() }.joinToString(" · "),
-                            icon = Icons.Outlined.Notifications,
-                            tileColor = LocalTokens.current.yellowSoft,
-                            tileTint = LocalTokens.current.yellowDark,
+                            icon = when (n.kind) {
+                                "SOS" -> Icons.Outlined.HealthAndSafety
+                                "QUICK_MESSAGE" -> Icons.Outlined.ChatBubbleOutline
+                                "TRIP" -> Icons.Outlined.DirectionsCar
+                                "ARRIVAL" -> Icons.Outlined.Place
+                                "QUEST", "ACHIEVEMENT", "LEVEL_UP" -> Icons.Outlined.EmojiEvents
+                                "MONSTER" -> Icons.Outlined.Pets
+                                else -> Icons.Outlined.Notifications
+                            },
+                            tileColor = if (n.kind == "SOS") LocalTokens.current.coralSoft else LocalTokens.current.yellowSoft,
+                            tileTint = if (n.kind == "SOS") LocalTokens.current.coralDark else LocalTokens.current.yellowDark,
                             trailing = { if (!n.read) Badge() },
+                            onClick = {
+                                vm.open(n)
+                                val route = when (n.kind) {
+                                    "SOS", "TRIP", "ARRIVAL", "QUICK_MESSAGE" -> Routes.MAP
+                                    "MONSTER" -> Routes.BATTLE
+                                    "QUEST" -> Routes.EXPLORE
+                                    "LEVEL_UP", "ACHIEVEMENT" -> Routes.ACHIEVEMENTS
+                                    "INVITATION", "CIRCLE", "CHALLENGE" -> Routes.CIRCLE
+                                    "SECURITY" -> Routes.ACCOUNT
+                                    "SHARING" -> Routes.PRIVACY
+                                    else -> null
+                                }
+                                if (route != null) {
+                                    if (route in Routes.tabs) nav.navigate(route) { popUpTo(Routes.MAP) { saveState = true }; launchSingleTop = true; restoreState = true }
+                                    else nav.navigate(route)
+                                }
+                            },
                         )
                     }
                     if (vm.hasMore) item { LaunchedEffect(s.value.size) { vm.more() } }

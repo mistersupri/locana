@@ -36,10 +36,29 @@ sealed interface TimelineItem {
         val emoji: String,
         val path: List<Pair<Double, Double>>,
         override val ongoing: Boolean = false,
+        /** Epoch milliseconds of each [path] point, for the replay. Empty for old data. */
+        val pathAt: List<Long> = emptyList(),
+        val startMs: Long = 0,
+        val endMs: Long = 0,
+        val mode: String? = null,
+        val fromName: String? = null,
+        val toName: String? = null,
+        val events: List<app.locana.data.api.DriveEventDto> = emptyList(),
+        val counts: app.locana.data.api.DriveEventCountsDto? = null,
     ) : TimelineItem
 }
 
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
+
+/** "Home → Office" when both ends are known, "Left Home" or "To Office" when one is, else the kind of trip. */
+fun tripTitle(from: String?, to: String?, mode: String?, ongoing: Boolean): String = when {
+    from != null && to != null -> "$from → $to"
+    to != null -> "On the way to $to"
+    from != null -> "Left $from"
+    mode == "DRIVE" -> "Drive"
+    mode == "CYCLE" -> "Ride"
+    else -> "Walk"
+}
 
 private fun placeEmoji(type: String?) = when (type) {
     "HOME" -> "🏠"
@@ -79,12 +98,7 @@ fun buildItems(
             val driving = s.mode == "DRIVE"
             val cycling = s.mode == "CYCLE"
             TimelineItem.Trip(
-                title = when {
-                    from != null && to != null -> "$from → $to"
-                    to != null -> "On the way to $to"
-                    from != null -> "Left $from"
-                    else -> if (driving) "Drive" else if (cycling) "Ride" else "Walk"
-                },
+                title = tripTitle(from, to, s.mode, ongoing),
                 range = range,
                 duration = duration,
                 distance = Formatting.distance(s.distanceM ?: 0),
@@ -94,6 +108,14 @@ fun buildItems(
                 emoji = if (driving) "🚗" else if (cycling) "🚲" else "🚶",
                 path = s.path.mapNotNull { if (it.size >= 2) it[0] to it[1] else null },
                 ongoing = ongoing,
+                pathAt = s.pathAt,
+                startMs = Instant.parse(s.startedAt).toEpochMilli(),
+                endMs = Instant.parse(s.endedAt).toEpochMilli(),
+                mode = s.mode,
+                fromName = from,
+                toName = to,
+                events = s.events,
+                counts = s.eventCounts,
             )
         }
     }

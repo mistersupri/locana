@@ -200,4 +200,5 @@ private fun PendingSample.toDto() = SampleDto(
     activity = activity,
     isMock = isMock.takeIf { it },
     batteryPct = batteryPct,
+    driveEvent = driveEvent,
 )

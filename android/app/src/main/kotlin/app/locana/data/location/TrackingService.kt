@@ -62,6 +62,16 @@ class TrackingService : LifecycleService() {
 
     private lateinit var fused: FusedLocationProviderClient
     private val crashDetector = app.locana.domain.CrashDetector()
+    private val drivingBehavior = app.locana.domain.DrivingBehavior()
+    /** While driving, positions are asked for every few seconds so braking and acceleration can be seen; most are not uploaded. */
+    private var fastMode = false
+    private var lastEnqueuedMs = 0L
+
+    private fun phoneInUse(): Boolean {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        val km = getSystemService(android.app.KeyguardManager::class.java)
+        return pm?.isInteractive == true && km?.isKeyguardLocked == false
+    }
     private var crashEnabled = true
     private var listeningForImpact = false
     private val impactListener = object : android.hardware.SensorEventListener {
@@ -190,18 +200,21 @@ class TrackingService : LifecycleService() {
             stopSelfSafely()
             return
         }
-        val requestChanged = next.intervalMs != plan.intervalMs || next.accuracy != plan.accuracy || next.minDistanceM != plan.minDistanceM
+        val fast = inVehicleNow() && (recent.lastOrNull()?.speedMps ?: 0f) >= 4f
+        val requestChanged = next.intervalMs != plan.intervalMs || next.accuracy != plan.accuracy || next.minDistanceM != plan.minDistanceM || fast != fastMode
         plan = next
+        fastMode = fast
         if (!requestChanged) return
-        val priority = when (next.accuracy) {
+        if (!fast) drivingBehavior.reset()
+        val priority = if (fast) Priority.PRIORITY_HIGH_ACCURACY else when (next.accuracy) {
             Accuracy.HIGH -> Priority.PRIORITY_HIGH_ACCURACY
             Accuracy.BALANCED -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
             Accuracy.LOW_POWER -> Priority.PRIORITY_LOW_POWER
         }
-        val req = LocationRequest.Builder(priority, next.intervalMs)
-            .setMinUpdateIntervalMillis(next.minIntervalMs)
-            .setMinUpdateDistanceMeters(next.minDistanceM)
-            .setMaxUpdateDelayMillis(if (next.uploadBatchMs in 1 until Long.MAX_VALUE) next.uploadBatchMs else 0)
+        val req = LocationRequest.Builder(priority, if (fast) 3_000L else next.intervalMs)
+            .setMinUpdateIntervalMillis(if (fast) 1_500L else next.minIntervalMs)
+            .setMinUpdateDistanceMeters(if (fast) 0f else next.minDistanceM)
+            .setMaxUpdateDelayMillis(if (!fast && next.uploadBatchMs in 1 until Long.MAX_VALUE) next.uploadBatchMs else 0)
             .setWaitForAccurateLocation(false)
             .build()
         try {
@@ -220,7 +233,12 @@ class TrackingService : LifecycleService() {
         val travelling = l.hasBearing() && l.hasSpeed() && l.speed >= 1.5f && l.accuracy <= 30f
         val direction: Float? = if (travelling) l.bearing else heading.sample(l)
         val mock = if (Build.VERSION.SDK_INT >= 31) l.isMock else @Suppress("DEPRECATION") l.isFromMockProvider
-        repo.enqueue(
+        val speed = if (l.hasSpeed()) l.speed else null
+        val event = drivingBehavior.onFix(l.time, speed, l.accuracy, inVehicleNow(), phoneInUse())
+        // Fast mode produces a fix every few seconds for the braking check; only one in a normal interval (or an event) is uploaded.
+        val keep = event != null || !fastMode || l.time - lastEnqueuedMs >= plan.intervalMs.coerceAtLeast(10_000L)
+        if (keep) lastEnqueuedMs = l.time
+        if (keep) repo.enqueue(
             PendingSample(
                 latitude = l.latitude,
                 longitude = l.longitude,
@@ -234,10 +252,11 @@ class TrackingService : LifecycleService() {
                 activity = activity.current(),
                 isMock = mock,
                 batteryPct = battery.pct,
+                driveEvent = event?.name,
             ),
         )
         recent.addLast(Fix(l.latitude, l.longitude, l.accuracy, l.time, if (l.hasSpeed()) l.speed else null))
-        while (recent.size > 20) recent.removeFirst()
+        while (recent.size > 80) recent.removeFirst()
         updateImpactSensor()
         val wasMoving = plan.intervalMs
         replan()

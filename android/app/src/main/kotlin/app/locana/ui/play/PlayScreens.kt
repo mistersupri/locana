@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Diamond
+import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.offset
@@ -160,7 +161,7 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(40.dp).border(3.dp, Color.White, CircleShape).clip(CircleShape)) {
-                                Avatar(m.profile.displayName, m.profile.avatarKey, size = 40.dp, framed = m.profile.avatarFrameKey != null, userId = m.id, photoVersion = m.profile.avatarPhotoVersion)
+                                Avatar(m.profile.displayName, m.profile.avatarKey, size = 40.dp, framed = m.profile.avatarFrameKey != null, frameKey = m.profile.avatarFrameKey, userId = m.id, photoVersion = m.profile.avatarPhotoVersion)
                             }
                             Spacer(Modifier.width(10.dp))
                             Column {
@@ -202,6 +203,8 @@ fun PlayScreen(nav: NavController, vm: PlayViewModel = hiltViewModel()) {
             item { SectionHeader("More") }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NavRow("Monster hunt", "Fight monsters met on the road", Icons.Outlined.Pets, t.coralSoft, t.coralDark) { nav.navigate(Routes.BATTLE) }
+                    NavRow("Weapon shop", "Spend your coins on stronger weapons", Icons.Outlined.Diamond, t.yellowSoft, t.yellowDark) { nav.navigate(Routes.SHOP) }
                     NavRow("Achievements", "Milestones for exploring and playing together", Icons.Outlined.MilitaryTech, t.yellowSoft, t.yellowDark) { nav.navigate(Routes.ACHIEVEMENTS) }
                     NavRow("Collection", "Frames, titles, markers and landmark stamps", Icons.Outlined.Diamond, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary) { nav.navigate(Routes.COLLECTIBLES) }
                     NavRow("Friends leaderboard", "This week's XP among your circles", Icons.Outlined.Groups, t.mintSoft, app.locana.ui.theme.LocalTokens.current.onMint) { nav.navigate(Routes.leaderboard("friends")) }
@@ -314,7 +317,7 @@ fun CollectiblesScreen(nav: NavController, vm: CollectiblesViewModel = hiltViewM
             is UiState.Data -> LazyColumn(Modifier.padding(pad), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                 val groups = s.value.groupBy { it.kind }
-                listOf("AVATAR_FRAME" to "Avatar frames", "TITLE" to "Titles", "MAP_MARKER" to "Map markers", "BADGE" to "Badges", "LANDMARK_STAMP" to "Landmark stamps").forEach { (kind, title) ->
+                listOf("AVATAR_FRAME" to "Avatar frames", "TITLE" to "Titles", "MAP_MARKER" to "Map markers", "QUICK_MESSAGE" to "Quick messages", "BADGE" to "Badges", "LANDMARK_STAMP" to "Landmark stamps").forEach { (kind, title) ->
                     val list = groups[kind].orEmpty()
                     if (list.isEmpty()) return@forEach
                     item(key = kind) {
@@ -344,12 +347,19 @@ private fun CollectibleCard(c: CollectibleDto, equipped: Boolean, modifier: Modi
     LocanaCard(modifier, shape = RoundedCornerShape(20.dp), shadow = 2.dp, onClick = if (equippable) onToggle else null) {
         Column(Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                IconTile(iconFor(c.iconKey), t.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, size = 42.dp, modifier = Modifier.alpha(if (owned) 1f else 0.7f))
+                when (c.kind) {
+                    // A frame is shown as it will look around you; a message by its emoji.
+                    "AVATAR_FRAME" -> Avatar("Lo", "explorer_teal", size = 52.dp, framed = true, frameKey = c.code, modifier = Modifier.alpha(if (owned) 1f else 0.55f))
+                    "QUICK_MESSAGE" -> Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(t.skySoft).alpha(if (owned) 1f else 0.6f), contentAlignment = Alignment.Center) {
+                        Text(c.name.substringAfterLast(' '), fontSize = 22.sp)
+                    }
+                    else -> IconTile(iconFor(c.iconKey), t.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, size = 42.dp, modifier = Modifier.alpha(if (owned) 1f else 0.7f))
+                }
                 Spacer(Modifier.weight(1f))
                 if (!owned) Icon(Icons.Outlined.Lock, contentDescription = "Locked", tint = t.ink3, modifier = Modifier.size(16.dp))
             }
-            Text(c.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 4.dp))
-            Text(c.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(c.name.removePrefix("Message: "), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 4.dp))
+            Text(c.description, style = MaterialTheme.typography.bodySmall, color = LocalTokens.current.ink2)
             when {
                 equipped -> TagPill("Equipped", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
                 equippable -> TagPill("Equip", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)

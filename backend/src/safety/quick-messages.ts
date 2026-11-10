@@ -6,6 +6,8 @@ export interface QuickMessageDef {
   code: string;
   text: string;
   emoji: string;
+  /** Funny extras are collectibles: only people who earned this one can send it. */
+  collectibleCode?: string;
 }
 
 export const QUICK_MESSAGES: QuickMessageDef[] = [
@@ -19,4 +21,16 @@ export const QUICK_MESSAGES: QuickMessageDef[] = [
   { code: 'HAHA', text: 'Haha', emoji: '😂' },
 ];
 
-export const quickMessage = (code: string) => QUICK_MESSAGES.find((m) => m.code === code);
+/** Earned from levels and achievements (see the collection). */
+export const COLLECTIBLE_QUICK_MESSAGES: QuickMessageDef[] = [
+  { code: 'NOTED_CAPTAIN', text: 'Noted, captain!', emoji: '🎖️', collectibleCode: 'qm_noted' },
+  { code: 'SNACK_TIME', text: 'Snack time?', emoji: '🍜', collectibleCode: 'qm_snack' },
+  { code: 'BEEP_BEEP', text: 'Beep beep!', emoji: '🚙', collectibleCode: 'qm_beep' },
+  { code: 'TOO_SLOW', text: 'Too slow!', emoji: '🐌', collectibleCode: 'qm_slow' },
+  { code: 'GOAT', text: "You're the GOAT", emoji: '🐐', collectibleCode: 'qm_goat' },
+  { code: 'SPILL_TEA', text: 'Spill the tea', emoji: '☕', collectibleCode: 'qm_tea' },
+  { code: 'LETS_PARTY', text: "Let's party!", emoji: '🎉', collectibleCode: 'qm_party' },
+  { code: 'BOO', text: 'Boo!', emoji: '👻', collectibleCode: 'qm_ghost' },
+];
+
+export const quickMessage = (code: string) => [...QUICK_MESSAGES, ...COLLECTIBLE_QUICK_MESSAGES].find((m) => m.code === code);

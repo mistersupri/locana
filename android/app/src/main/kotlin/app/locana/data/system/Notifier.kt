@@ -61,7 +61,7 @@ class Notifier @Inject constructor(@ApplicationContext private val context: Cont
 
     fun channelFor(kind: String) = when (kind) {
         "ARRIVAL", "CIRCLE", "CHALLENGE", "INVITATION" -> CH_CIRCLE
-        "QUEST", "LEVEL_UP", "ACHIEVEMENT" -> CH_GAME
+        "QUEST", "LEVEL_UP", "ACHIEVEMENT", "MONSTER" -> CH_GAME
         "SHARING" -> CH_SHARING
         "SOS" -> CH_SAFETY
         "QUICK_MESSAGE", "TRIP" -> CH_CIRCLE

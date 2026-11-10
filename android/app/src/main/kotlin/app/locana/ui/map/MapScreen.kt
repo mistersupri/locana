@@ -75,6 +75,7 @@ import app.locana.ui.components.ChunkyButton
 import app.locana.ui.components.ChunkyStyle
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
@@ -104,6 +105,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -168,6 +170,12 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     val poi by vm.poi.collectAsStateWithLifecycle()
     val nearby by vm.nearby.collectAsStateWithLifecycle()
     val focusedId = focus?.userId
+    // A notification asked for this person (an SOS, a quick message, a long trip): open them as soon as the circle is loaded.
+    val pendingId by vm.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingId, ui.members) {
+        val id = pendingId ?: return@LaunchedEffect
+        if (ui.members.any { it.userId == id }) { vm.focus(id); vm.consumePending() }
+    }
     androidx.activity.compose.BackHandler(enabled = focusedId != null) { vm.clearFocus() }
     val scaffold = androidx.compose.material3.rememberBottomSheetScaffoldState()
     var layersOpen by remember { mutableStateOf(false) }
@@ -200,11 +208,11 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     LaunchedEffect(focusedId, focusedMember?.lat, focusedMember?.lon) {
         if (focusedId == null) {
             followedId = null
-            scaffold.bottomSheetState.partialExpand()
+            runCatching { scaffold.bottomSheetState.partialExpand() }
             return@LaunchedEffect
         }
         val first = followedId != focusedId
-        if (first) { followedId = focusedId; scaffold.bottomSheetState.expand() }
+        if (first) { followedId = focusedId; runCatching { scaffold.bottomSheetState.expand() } }
         val m = focusedMember
         if (m?.lat != null && m.lon != null && m.presence != Presence.HIDDEN) {
             val at = LatLng(m.lat, m.lon)
@@ -223,6 +231,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
     // really visible between the header and the drawer: that is where a followed person's pin is kept.
     val densityNow = androidx.compose.ui.platform.LocalDensity.current.density
     var scaffoldHeightPx by remember { mutableStateOf(0) }
+    var scaffoldWidthPx by remember { mutableStateOf(0) }
     var sheetTopPx by remember { mutableStateOf(0f) }
     LaunchedEffect(scaffold) {
         androidx.compose.runtime.snapshotFlow { runCatching { scaffold.bottomSheetState.requireOffset() }.getOrNull() }
@@ -238,7 +247,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
 
     val statusTop = androidx.compose.foundation.layout.WindowInsets.Companion.statusBars.asPaddingValues().calculateTopPadding()
     BottomSheetScaffold(
-        modifier = Modifier.onSizeChanged { scaffoldHeightPx = it.height },
+        modifier = Modifier.onSizeChanged { scaffoldHeightPx = it.height; scaffoldWidthPx = it.width },
         scaffoldState = scaffold,
         // With no circle the sheet holds the only call to action, so it opens tall enough to show it.
         // The sheet reaches the bottom of the screen; the peek leaves room for the tab bar floating over it.
@@ -269,6 +278,7 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                     onRetry = vm::retryTimeline,
                     onHide = { vm.hideFrom(m.userId, !m.hiddenFromThem) },
                     onManage = { ui.circleId?.let { nav.navigate(Routes.circleMembers(it)) } },
+                    onOpenTrip = { vm.openReplay(it); nav.navigate(Routes.TRIP_REPLAY) },
                 ) else CircleSheet(
                     ui = ui,
                     onMember = { vm.focus(it) },
@@ -367,6 +377,19 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = above + 62.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.78f)).padding(horizontal = 6.dp, vertical = 2.dp),
             )
 
+            // People who are off the screen: an avatar on the nearest edge, pointing their way.
+            if (BuildConfig.HAS_MAPS_KEY && ui.layers.members) {
+                val dens = LocalDensity.current.density
+                app.locana.ui.map.OffscreenPins(
+                    members = ui.members.filter { it.userId != focusedId },
+                    camera = camera,
+                    topPx = (76.dp + statusTop).value * dens,
+                    bottomPx = scaffoldHeightPx - (if (visibleBottomPad > 0.dp) visibleBottomPad.value * dens else (pad.calculateBottomPadding()).value * dens),
+                    widthPx = scaffoldWidthPx.toFloat(),
+                    onClick = { vm.focus(it) },
+                )
+            }
+
             // A soft wash under the status bar so its icons stay readable over any part of the map.
             Box(
                 Modifier.align(Alignment.TopCenter).fillMaxWidth().height(statusTop + 14.dp)
@@ -448,6 +471,37 @@ fun MapScreen(nav: NavController, vm: MapViewModel = hiltViewModel()) {
                                 Text("You're here. Unlock it for +${shownClaim.rewardXp} XP", style = MaterialTheme.typography.bodySmall, color = tk.ink2)
                             }
                             ChunkyButton("Claim", { vm.claim(shownClaim) }, compact = true)
+                        }
+                    }
+                }
+            }
+
+            // A monster on the road: a banner under the category chips, with a way to fight it now or ignore it.
+            val monster by vm.monster.collectAsStateWithLifecycle()
+            var ignoredMonster by remember { mutableStateOf<String?>(null) }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = monster != null && monster?.id != ignoredMonster && focusedId == null,
+                modifier = Modifier.align(Alignment.TopCenter),
+                enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(0.6f, 380f)) { -it } + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutVertically(Motion.enter(200)) { -it } + androidx.compose.animation.fadeOut(Motion.enter(150)),
+            ) {
+                var shown by remember { mutableStateOf(monster) }
+                if (monster != null) shown = monster
+                val e = shown
+                if (e != null) {
+                    val tk = LocalTokens.current
+                    Surface(
+                        shape = RoundedCornerShape(22.dp), color = tk.card, shadowElevation = 8.dp,
+                        modifier = Modifier.padding(top = statusTop + 76.dp + 52.dp, start = 16.dp, end = 16.dp).fillMaxWidth().semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+                    ) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(e.monster.emoji, fontSize = 34.sp)
+                            Column(Modifier.weight(1f)) {
+                                Text("A wild ${e.monster.name} appeared!", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 2)
+                                Text("+${e.rewardCoins} coins, +${e.rewardXp} XP if you win", style = MaterialTheme.typography.bodySmall, color = tk.ink2)
+                            }
+                            ChunkyButton("Fight", { nav.navigate(Routes.BATTLE) }, compact = true)
+                            Text("Later", style = MaterialTheme.typography.labelLarge, color = tk.ink2, modifier = Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button) { ignoredMonster = e.id }.padding(6.dp))
                         }
                     }
                 }
@@ -680,7 +734,7 @@ private fun MemberRow(m: MemberPin, place: PlaceDto?, onClick: () -> Unit) {
     val battery = m.batteryPct?.takeIf { m.presence == Presence.LIVE || m.presence == Presence.STALE }
     LocanaCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), onClick = onClick, shadow = 2.dp) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(m.name, m.avatarKey, size = 44.dp, framed = m.framed, userId = m.userId, photoVersion = m.photoVersion)
+            Avatar(m.name, m.avatarKey, size = 44.dp, framed = m.framed, frameKey = m.frameKey, userId = m.userId, photoVersion = m.photoVersion)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)

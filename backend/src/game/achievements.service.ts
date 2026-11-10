@@ -12,7 +12,8 @@ export type AchievementMetric =
   | 'streak'
   | 'weekendTiles'
   | 'circleQuests'
-  | 'territoriesClaimed';
+  | 'territoriesClaimed'
+  | 'monstersDefeated';
 
 interface Criteria {
   metric: AchievementMetric;
@@ -46,6 +47,8 @@ export class AchievementsService {
         return tx.questCompletion.count({ where: { userId, quest: { condition: 'CIRCLE_TILES' } } });
       case 'territoriesClaimed':
         return tx.territoryEvent.count({ where: { userId, type: 'CLAIM' } });
+      case 'monstersDefeated':
+        return tx.encounter.count({ where: { userId, status: 'WON' } });
     }
   }
 

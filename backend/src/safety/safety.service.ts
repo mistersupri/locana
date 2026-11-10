@@ -6,7 +6,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildTimeline, TimelinePoint } from '../location/timeline';
 import { EmergencyContactDto, QuickMessageDto, SosDto } from './safety.dto';
-import { QUICK_MESSAGES, quickMessage } from './quick-messages';
+import { COLLECTIBLE_QUICK_MESSAGES, QUICK_MESSAGES, quickMessage } from './quick-messages';
 
 /** A trip counts as long at this distance, or at this length of time once it has covered a few km. */
 export const LONG_TRIP_M = 15_000;
@@ -97,13 +97,19 @@ export class SafetyService {
   }
 
   // ── quick messages ──
-  catalog() {
-    return QUICK_MESSAGES;
+  /** The everyday messages plus the funny ones this person has earned. */
+  async catalog(userId: string) {
+    const owned = await this.prisma.userCollectible.findMany({ where: { userId, collectible: { kind: 'QUICK_MESSAGE' } }, select: { collectible: { select: { code: true } } } });
+    const codes = new Set(owned.map((o) => o.collectible.code));
+    return [...QUICK_MESSAGES, ...COLLECTIBLE_QUICK_MESSAGES.filter((m) => m.collectibleCode && codes.has(m.collectibleCode))].map(({ code, text, emoji }) => ({ code, text, emoji }));
   }
 
   async sendQuickMessage(circleId: string, fromId: string, toId: string, dto: QuickMessageDto) {
     const def = quickMessage(dto.code);
     if (!def) throw badRequest('UNKNOWN_QUICK_MESSAGE', 'That quick message does not exist');
+    if (def.collectibleCode && !(await this.prisma.userCollectible.findFirst({ where: { userId: fromId, collectible: { code: def.collectibleCode } } }))) {
+      throw new ApiError(HttpStatus.FORBIDDEN, 'NOT_UNLOCKED', 'You have not unlocked that message yet. Check your collection.');
+    }
     if (fromId === toId) throw badRequest('NOT_YOURSELF', 'Pick someone else in the circle');
     await this.access.requireMember(circleId, fromId);
     await this.access.requireMember(circleId, toId);

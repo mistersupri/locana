@@ -109,8 +109,8 @@ private fun DayButton(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 }
 
 @Composable
-private fun TimelineCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    LocanaCard(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), shadow = 3.dp) { content() }
+private fun TimelineCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    LocanaCard(modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), shadow = 3.dp, onClick = onClick) { content() }
 }
 
 /** A pill with an optional leading icon and its own tint, like "Stayed 7 hrs, 15 mins". */
@@ -141,9 +141,9 @@ internal fun StayCard(s: TimelineItem.Stay) {
 }
 
 @Composable
-internal fun TripCard(t: TimelineItem.Trip) {
+internal fun TripCard(t: TimelineItem.Trip, onOpen: () -> Unit = {}) {
     val tk = LocalTokens.current
-    TimelineCard(Modifier.semantics { contentDescription = "${t.title}, ${t.range}, ${t.distance}, ${t.duration}" }) {
+    TimelineCard(Modifier.semantics { contentDescription = "${t.title}, ${t.range}, ${t.distance}, ${t.duration}. Opens the route replay." }, onClick = onOpen) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.clip(RoundedCornerShape(16.dp))) { RouteMap(t.path) }
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,6 +158,11 @@ internal fun TripCard(t: TimelineItem.Trip) {
                 StatPill("Took ${t.duration}", tk.skySoft, app.locana.ui.theme.LocalTokens.current.onSky, Icons.Outlined.Timer)
                 StatPill("avg ${t.avgSpeed}", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)
                 if (t.driving) StatPill("top ${t.maxSpeed}", tk.yellowSoft, tk.onYellowSoft, Icons.Outlined.Bolt)
+                t.counts?.let { c ->
+                    if (c.hardBrake > 0) StatPill("Hard braking ×${c.hardBrake}", tk.coralSoft, tk.coralDark)
+                    if (c.rapidAccel > 0) StatPill("Rapid acceleration ×${c.rapidAccel}", tk.yellowSoft, tk.onYellowSoft)
+                    if (c.phoneUse > 0) StatPill("Phone use ×${c.phoneUse}", tk.skySoft, tk.onSky)
+                }
                 if (t.ongoing) StatPill("Now", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
             }
         }

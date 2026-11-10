@@ -91,6 +91,7 @@ fun MemberMarkers(members: List<MemberPin>, places: List<PlaceDto>, focusedId: S
             avatarTextColor = fg.toArgb(),
             accent = accent,
             framed = m.framed,
+            frameKey = m.frameKey,
             frameColor = frame,
             stale = m.presence == Presence.STALE,
             photoKey = if (photo != null) m.photoVersion else null,

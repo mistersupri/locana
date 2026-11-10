@@ -50,6 +50,8 @@ export interface TripSegment {
   maxSpeedKmh: number;
   mode: TimelineMode;
   path: [number, number][];
+  /** Epoch milliseconds of each path point, so a replay can move along the route in time. */
+  pathAt: number[];
 }
 
 export type TimelineSegment = StaySegment | TripSegment;
@@ -82,7 +84,9 @@ function tripFrom(ps: TimelinePoint[]): TripSegment | null {
   if (dist < 30) return null; // GPS jitter, not a trip
   const avgKmh = (dist / durationSec) * 3.6;
   const step = Math.max(1, Math.ceil(ps.length / MAX_PATH_POINTS));
-  const path = ps.filter((_, i) => i % step === 0 || i === ps.length - 1).map((p) => [round(p.latitude), round(p.longitude)] as [number, number]);
+  const kept = ps.filter((_, i) => i % step === 0 || i === ps.length - 1);
+  const path = kept.map((p) => [round(p.latitude), round(p.longitude)] as [number, number]);
+  const pathAt = kept.map((p) => p.recordedAt.getTime());
   return {
     type: 'TRIP',
     startedAt,
@@ -93,6 +97,7 @@ function tripFrom(ps: TimelinePoint[]): TripSegment | null {
     maxSpeedKmh: Math.round(maxMps * 3.6),
     mode: tripMode(ps, avgKmh, Math.round(maxMps * 3.6)),
     path,
+    pathAt,
   };
 }
 
