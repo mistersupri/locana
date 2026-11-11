@@ -2,11 +2,12 @@
 
 [![CI](https://github.com/mistersupri/locana/actions/workflows/ci.yml/badge.svg)](https://github.com/mistersupri/locana/actions/workflows/ci.yml)
 
-Social GPS tracker and location-based game for Android. People share their live location with circles they trust (a partner, family, friends) and turn everyday walks into a game: reveal map tiles, visit public landmarks, finish quests, earn XP and compete in friendly territory rounds with their circle.
+Social GPS tracker and location-based game for Android and iOS. People share their live location with circles they trust (a partner, family, friends) and turn everyday walks into a game: reveal map tiles, visit public landmarks, finish quests, earn XP and compete in friendly territory rounds with their circle.
 
 | Part | Stack | Folder |
 | --- | --- | --- |
 | Android app | Kotlin, Jetpack Compose, Material 3, Hilt, Room, DataStore, Retrofit, OkHttp WebSocket, Google Maps SDK, Fused Location, WorkManager | [`android/`](android) |
+| iOS app | Swift, SwiftUI (iOS 17), MapKit, CoreLocation, CoreMotion, URLSession WebSocket, XcodeGen | [`ios/`](ios) |
 | Backend | Node.js 22, NestJS 10, TypeScript, PostgreSQL 16 (Prisma), Redis 7 (optional), WebSocket gateway, OpenAPI | [`backend/`](backend) |
 
 No Firebase, Supabase or other backend-as-a-service. The backend is the only authority for identity, circle membership, who may see whose location, XP, quests, achievements and rankings.
@@ -16,6 +17,7 @@ No Firebase, Supabase or other backend-as-a-service. The backend is the only aut
 - [Architecture](docs/architecture.md): components, data flow, decisions
 - [API and realtime contracts](docs/api.md): REST endpoints, WebSocket events, errors, idempotency, reconnect rules
 - [Backend guide](docs/backend.md): local setup, environment variables, tests, deployment, migrations, backups, troubleshooting
+- [iOS guide](docs/ios.md): build with XcodeGen, CI, signing and TestFlight notes, what is ported
 - [Android guide](docs/android.md): build setup, Google Maps and Sign-In keys, signing and release, background location limits, battery test
 - [Privacy and safety](docs/privacy.md): data categories, access rules, retention, deletion, UU PDP and Google Play notes
 - [Design notes](docs/design.md): visual direction and the reason behind each design decision
