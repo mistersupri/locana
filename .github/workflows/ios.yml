@@ -42,12 +42,17 @@ jobs:
       - name: Build for the simulator
         working-directory: ios
         run: |
-          set -o pipefail
           xcodebuild build -project Locana.xcodeproj -scheme Locana \
-            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1 | tail -n 200
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO > build.log 2>&1 || true
+          echo "---- errors ----"
+          grep -E "error:" build.log | sed -E 's#/Users/runner/work/locana/locana/##' | sort -u | head -120
+          echo "---- end ----"
+          grep -q "BUILD SUCCEEDED" build.log
       - name: Test on a simulator
         working-directory: ios
         run: |
-          set -o pipefail
           xcodebuild test -project Locana.xcodeproj -scheme Locana \
-            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO 2>&1 | tail -n 120
+            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO > test.log 2>&1 || true
+          echo "---- errors and results ----"
+          grep -E "error:|Test Case.*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" test.log | sed -E 's#/Users/runner/work/locana/locana/##' | sort -u | head -80
+          grep -q "TEST SUCCEEDED" test.log

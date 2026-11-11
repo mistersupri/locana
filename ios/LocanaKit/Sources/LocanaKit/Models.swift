@@ -356,7 +356,12 @@ public struct EncounterDto: Codable, Equatable, Identifiable {
     public let expiresAt: String
 }
 public struct OwnedWeaponDto: Codable, Equatable, Identifiable { public var id: String { code }; public let code: String, name: String, emoji: String; public let power: Int }
-public struct BattleStateDto: Codable, Equatable { public let encounter: EncounterDto?; public let coins: Int; @Arr public var weapons: [OwnedWeaponDto] }
+public struct BattleStateDto: Codable, Equatable {
+    public let encounter: EncounterDto?
+    public let coins: Int
+    @Arr public var weapons: [OwnedWeaponDto]
+    public init(encounter: EncounterDto?, coins: Int, weapons: [OwnedWeaponDto]) { self.encounter = encounter; self.coins = coins; self.weapons = weapons }
+}
 public struct AttackRequest: Codable { public var weaponCode: String?; public init(weaponCode: String?) { self.weaponCode = weaponCode } }
 public struct HitDto: Codable, Equatable {
     public let damage: Int, crit: Bool
