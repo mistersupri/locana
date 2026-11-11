@@ -15,6 +15,16 @@ permissions:
   contents: read
 
 jobs:
+  probe:
+    name: Runner probe (ubuntu)
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "ubuntu runners work"
+  probe-mac15:
+    name: Runner probe (macos-15)
+    runs-on: macos-15
+    steps:
+      - run: sw_vers && swift --version
   kit:
     name: LocanaKit tests
     runs-on: macos-14
