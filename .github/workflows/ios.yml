@@ -43,7 +43,7 @@ jobs:
         working-directory: ios
         run: |
           xcodebuild build -project Locana.xcodeproj -scheme Locana \
-            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO > build.log 2>&1 || true
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO > build.log 2>&1 || true
           echo "---- errors ----"
           grep -E "error:" build.log | sed -E 's#/Users/runner/work/locana/locana/##' | sort -u | head -120
           echo "---- end ----"
@@ -56,3 +56,28 @@ jobs:
           echo "---- errors and results ----"
           grep -E "error:|Test Case.*(passed|failed)|Executed|TEST (SUCCEEDED|FAILED)" test.log | sed -E 's#/Users/runner/work/locana/locana/##' | sort -u | head -80
           grep -q "TEST SUCCEEDED" test.log
+      - name: Launch the app in the simulator
+        working-directory: ios
+        run: |
+          APP=build/Build/Products/Debug-iphonesimulator/Locana.app
+          test -d "$APP"
+          DEVICE=$(xcrun simctl list devices available | grep -m1 "iPhone 16 (" | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "device $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b > /dev/null
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" app.locana.ios
+          sleep 10
+          # The app is still running after ten seconds: it did not crash while starting.
+          xcrun simctl spawn "$DEVICE" launchctl list | grep "UIKitApplication:app.locana.ios"
+          xcrun simctl io "$DEVICE" screenshot first-launch.png
+      - name: Zip the simulator build
+        working-directory: ios
+        run: ditto -c -k --keepParent build/Build/Products/Debug-iphonesimulator/Locana.app Locana-simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: locana-ios-simulator
+          path: |
+            ios/Locana-simulator.zip
+            ios/first-launch.png
+          retention-days: 14
