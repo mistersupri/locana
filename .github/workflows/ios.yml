@@ -9,10 +9,7 @@ on:
   pull_request:
     paths: ["ios/**", ".github/workflows/ios.yml"]
   workflow_call:
-
-concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 permissions:
   contents: read
