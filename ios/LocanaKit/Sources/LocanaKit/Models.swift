@@ -100,6 +100,19 @@ public struct PrivacyPatch: Codable {
     }
 }
 
+/// Sent with explicit nulls, so unequipping is possible.
+public struct CosmeticsRequest: Encodable {
+    public var avatarFrameKey: String?, titleKey: String?, markerKey: String?
+    public init(avatarFrameKey: String?, titleKey: String?, markerKey: String?) { self.avatarFrameKey = avatarFrameKey; self.titleKey = titleKey; self.markerKey = markerKey }
+    enum CodingKeys: String, CodingKey { case avatarFrameKey, titleKey, markerKey }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(avatarFrameKey, forKey: .avatarFrameKey)
+        try c.encode(titleKey, forKey: .titleKey)
+        try c.encode(markerKey, forKey: .markerKey)
+    }
+}
+
 public struct DeviceRequest: Codable { public var installId: String; public var model: String?; public var appVersion: String?
     public init(installId: String, model: String?, appVersion: String?) { self.installId = installId; self.model = model; self.appVersion = appVersion } }
 

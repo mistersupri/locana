@@ -26,3 +26,28 @@ jobs:
       - name: Test
         working-directory: ios/LocanaKit
         run: swift test
+
+  app:
+    name: Build and test the app
+    needs: kit
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build for the simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project Locana.xcodeproj -scheme Locana \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1 | tail -n 200
+      - name: Test on a simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test -project Locana.xcodeproj -scheme Locana \
+            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO 2>&1 | tail -n 120

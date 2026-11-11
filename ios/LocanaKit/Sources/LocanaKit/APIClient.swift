@@ -109,7 +109,7 @@ public final class APIClient: @unchecked Sendable {
         return req
     }
 
-    private func raw(_ method: String, _ path: String, query: [(String, String?)], body: Encodable?, auth: Bool, headers: [String: String]) async throws -> Data {
+    func raw(_ method: String, _ path: String, query: [(String, String?)], body: Encodable?, auth: Bool, headers: [String: String]) async throws -> Data {
         var token = auth ? store.load()?.access : nil
         for attempt in 0..<2 {
             let req = try makeRequest(method, path, query: query, body: body, headers: headers, token: token)

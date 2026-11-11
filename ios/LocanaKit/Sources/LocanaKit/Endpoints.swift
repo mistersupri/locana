@@ -14,7 +14,11 @@ extension APIClient {
     public func me() async throws -> MeDto { try await send("GET", "v1/me") }
     public func updateMe(_ b: UpdateProfileRequest) async throws -> MeDto { try await send("PATCH", "v1/me", body: b) }
     public func updatePrivacy(_ b: PrivacyPatch) async throws -> PrivacyDto { try await send("PATCH", "v1/me/privacy", body: b) }
+    public func setCosmetics(frame: String?, title: String?, marker: String?) async throws -> MeDto { try await send("PUT", "v1/me/cosmetics", body: CosmeticsRequest(avatarFrameKey: frame, titleKey: title, markerKey: marker)) }
     public func registerDevice(_ b: DeviceRequest) async throws { try await sendVoid("POST", "v1/me/devices", body: b) }
+
+    /// A person's photo bytes (JPEG), or an error if they have none.
+    public func photo(userId: String) async throws -> Data { try await raw("GET", "v1/users/\(userId)/avatar-photo", query: [], body: nil, auth: true, headers: [:]) }
 
     // circles
     public func circles() async throws -> [CircleSummaryDto] { try await send("GET", "v1/circles") }

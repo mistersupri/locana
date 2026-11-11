@@ -62,6 +62,12 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(r.rewards)
     }
 
+    func testCosmeticsSendExplicitNulls() throws {
+        let text = String(decoding: try JSONEncoder().encode(CosmeticsRequest(avatarFrameKey: nil, titleKey: "title_wayfinder", markerKey: nil)), as: UTF8.self)
+        XCTAssertTrue(text.contains("\"avatarFrameKey\":null"))
+        XCTAssertTrue(text.contains("\"titleKey\":\"title_wayfinder\""))
+    }
+
     func testEmergencyContactEncodesWithoutServerIdWhenNew() throws {
         let data = try JSONEncoder().encode(SetContactsRequest(contacts: [EmergencyContactDto(name: "Ibu", phone: "0811")]))
         let text = String(decoding: data, as: UTF8.self)
