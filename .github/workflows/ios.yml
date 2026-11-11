@@ -1,0 +1,31 @@
+# Builds and tests the iOS app on a macOS runner. Only runs when something under ios/ changes.
+name: iOS
+
+on:
+  push:
+    branches-ignore: [main]
+    tags-ignore: ["v*"]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_call:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kit:
+    name: LocanaKit tests
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version && xcodebuild -version
+      - name: Test
+        working-directory: ios/LocanaKit
+        run: swift test
